@@ -663,7 +663,7 @@ class Lakeator:
         pts = lambda x: (xfunct(x), yfunct(x))
         return pts
 
-    def estimate_DOA(self, path=lambda x: (np.cos(2*np.pi*x), np.sin(2*np.pi*x)), array_GPS=False, npoints=1000):
+    def estimate_DOA(self, path=lambda x: (np.cos(2*np.pi*x), np.sin(2*np.pi*x)), array_GPS=False, npoints=2500, map_zoom=20, map_scale=2):
         """Gives an estimate of the source DOA along the `path` provided, otherwise along the unit circle if `path` is not present. 
 
         Arguments:
@@ -693,20 +693,21 @@ class Lakeator:
         else:
             pass
 
-        plt.scatter(dom[0,:], dom[1,:], c=eval_dom)
+        p = plt.scatter(dom[0,:], dom[1,:], c=eval_dom)
         plt.scatter(self.mics[:,0], self.mics[:,1])
         plt.xlim([np.min(dom[0,:]), np.max(dom[0,:])])
         plt.ylim([np.min(dom[1,:]), np.max(dom[1,:])])
         plt.title(r"{} DOA Estimate; Max at $({:.2f}, {:.2f})$, $\theta={:.1f}^\circ$".format(pathstr if pathstr else "", x_max, y_max, theta))
         plt.xlabel(r"x [m] East/West")
         plt.ylabel(r"y [m] North/South")
+        plt.colorbar(p)
     
         if pathstr:
             lat, lon = _inv_proj(dom[:,maxidx:maxidx+1].T, array_GPS)
-            print(lat, lon, '\n', array_GPS)
+            # print(lat, lon, '\n', array_GPS)
             with open("./data/apikey", 'r') as f_ap:
                 key = f_ap.readline()
-            dmap = DecoratedMap(maptype='satellite', key=key, zoom=20, scale=2)
+            dmap = DecoratedMap(maptype='satellite', key=key, zoom=map_zoom, scale=map_scale)
             dmap.add_marker(LatLonMarker(lat=array_GPS[1], lon=array_GPS[0], label='A'))
             dmap.add_marker(LatLonMarker(lat=lat[0], lon=lon[0], label='B'))
             response = requests.get(dmap.generate_url())
@@ -716,6 +717,12 @@ class Lakeator:
             im = mpimg.imread("{}.png".format(pathstr))
             plt.subplot(122)
             plt.imshow(im)
+            # plt.axis("off")
+            plt.xticks([])
+            plt.yticks([])
+            plt.title("{} Satellite Imagery".format(pathstr))
+            plt.xlabel("A: Array\nB: Bird")
+
         
         plt.show()
         return

@@ -2,10 +2,10 @@
 import matplotlib.pyplot as plt
 import lakeator
 
-in_file = "./data/k.wav"
-out_file = "./data/k_shifted.wav"
+in_file = "./data/train1exc50seconds.wav"
+out_file = "./data/train1exc50seconds_shifted.wav"
 
-l=lakeator.Lakeator(mic_locations=lakeator.UCA(n=7, r=1))
-l.shift_sound(location=(-26.543, 18.411), inputfile=in_file, output_filename=out_file)
+l=lakeator.Lakeator(mic_locations=lakeator.UCA(n=7, r=0.07))
+l.shift_sound(location=(-34.415, -39.752), inputfile=in_file, output_filename=out_file, noisescale=0.05)
 l.load(out_file, GCC_processor="p-PHAT")
-l.estimate_DOA(path="Butterfly Pond", array_GPS=(175.611459264361,-40.357194,0), npoints=2500)
+l.estimate_DOA(path="Lake", array_GPS=(172.3977859857789,-43.74149174828536,0), map_zoom=18)
