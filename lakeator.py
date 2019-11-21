@@ -81,7 +81,7 @@ class Lakeator:
         if file_path:
             self.load(file_path)
 
-    def load(self, file_path, normalise: bool=True, GCC_processor="CC", do_FFTs=True, filterpairs=False):
+    def load(self, file_path, normalise: bool=True, GCC_processor="p-PHAT", do_FFTs=True, filterpairs=False):
         """Loads the data from the .wav file, and computes the intra-channel correlations.
 
         Correlations are computed and then interpolated and stored within the locator
@@ -110,22 +110,10 @@ class Lakeator:
             for i in range(data.shape[1]):
                 data[:, i] -= data[:, i].mean()
 
-
         # Store appropriately
         self.data = data
-        # self._whiten_signal_()
 
         if do_FFTs:
-
-            # if filterpairs:
-            #     for pr in self._mic_pairs_:
-            #         fc = self.sound_speed / (2 * np.linalg.norm(self.mics[pr[0],:], self.mics[pr[1],:]))
-            #         w = fc / (self.sample_rate / 2)
-            #         b, a = signal.butter(5, w, 'low')
-            #         output = signal.filtfilt(b, a, self.data, axis=0)
-            #         self.data = output
-            #         return
-
             temp_pad = np.concatenate(
                 (data, np.zeros(((2**(np.ceil(np.log2(data.shape[0])))-data.shape[0]).astype('int32'), data.shape[1]))),
                 0)
@@ -254,14 +242,15 @@ class Lakeator:
 
         return np.sum(ts, axis=0)
 
-    def display_heatmap(self, xrange=(-50, 50), yrange=(-50, 50), xstep=False, ystep=False, colormap="gist_heat", shw=True,
-                        block_run=True, no_fig=False):
+    def estimate_DOA_heatmap(self, method, xrange=(-50, 50), yrange=(-50, 50), xstep=False, ystep=False, colormap="gist_heat", shw=True,
+                        block_run=True, no_fig=False, freq=False, signals=1):
         """Displays a heatmap for visual inspection of correlation-based location estimation.
 
         Generates a grid of provided dimension/resolution, and evaluates the optimisation function at each point on the grid.
         Vectorised for fast execution.
 
         Arguments:
+            method (str): One of; "GCC", "MUSIC" or "AF-MUSIC". The method to be used in heatmap generation.
             xrange (float, float): The lower and upper bound in the x-direction.
             yrange (float, float): The lower and upper bound in the y-direction.
             xstep (float): If given, determines the size of the steps in the x-direction. Otherwise defaults to 1000 steps.
@@ -270,6 +259,8 @@ class Lakeator:
             shw (bool): If False, return the axis object rather than display.
             block_run (bool): Pause execution of the file while the figure is open? Set to True for running in the command-line.
             no_fig (bool): If True, return the heatmap grid rather than plot it.
+            freq (float): Frequency, in Hz, at which to calculate the MUSIC spectrum.
+            signals (int): The number of signals to be localised. Only relevant for MUSIC-based methods.
 
         Returns:
             np.array: Returns EITHER the current (filled) heatmap domain if no_fig == True, OR a handle to the displayed figure.
@@ -284,8 +275,22 @@ class Lakeator:
         self._hm_domain_ = np.zeros((len(ydom), len(xdom)))
 
         xdom, ydom = np.meshgrid(xdom, ydom)
-        self._hm_domain_ = self._objective_(xdom, ydom)
-
+        
+        if method.upper() == "AF-MUSIC":
+            self.dataFFT = fft_pack.rfft(self.data, axis=0, n=2*self.data.shape[0])
+            self._hm_domain_ = self._hm_domain_
+        elif method.upper() == "MUSIC":
+            assert freq, "Frequency must be provided for MUSIC calculation"
+            pos = fft_pack.rfftfreq(2*self.data.shape[0])*self.sample_rate
+            actidx = np.argmin(abs(pos-freq))
+            self.dataFFT = fft_pack.rfft(self.data, axis=0, n=2*self.data.shape[0])
+            self._hm_domain_ = self._MUSIC2D_((pos[actidx], actidx), xdom, ydom, numsignals=signals)
+        elif method.upper() == "GCC":
+            self._hm_domain_ = self._objective_(xdom, ydom)
+        else:
+            print("Method not provided. Defaulting to GCC.")
+            self._hm_domain_ = self._objective_(xdom, ydom)
+            
         if no_fig:
             return self._hm_domain_
 
@@ -294,7 +299,8 @@ class Lakeator:
         plt.colorbar()
         plt.xlabel("Horiz. Dist. from Center of Array [m]")
         plt.ylabel("Vert. Dist. from Center of Array [m]")
-        plt.title("{} Processor".format(self._GCC_proc_))
+        plt.title("{}-based Source Location Estimate".format(method))
+
         if shw:
             plt.show(block=block_run)
             return
@@ -663,10 +669,11 @@ class Lakeator:
         pts = lambda x: (xfunct(x), yfunct(x))
         return pts
 
-    def estimate_DOA(self, path=lambda x: (np.cos(2*np.pi*x), np.sin(2*np.pi*x)), array_GPS=False, npoints=2500, map_zoom=20, map_scale=2):
+    def estimate_DOA_path(self, method, path=lambda x: (np.cos(2*np.pi*x), np.sin(2*np.pi*x)), array_GPS=False, npoints=2500, map_zoom=20, map_scale=2):
         """Gives an estimate of the source DOA along the `path` provided, otherwise along the unit circle if `path` is not present. 
 
         Arguments:
+            method (str): One of; "GCC", "MUSIC", or "AF-MUSIC". The method to use for DOA estimation.
             path (str/function): A filepath to a saved Google Earth path (in .kmz form), else a function f: [0,1]->R^2 to act as a 
                                  parametrisation of the path at which to evaluate the DOA estimator.
             npoints (int): The number of points along the path to sample.
@@ -680,6 +687,8 @@ class Lakeator:
             assert callable(path)
         
         dom = np.array(path(np.linspace(0, 1, npoints)))
+
+
         eval_dom = self._objective_(dom[0,:], dom[1,:])
         
         maxidx = np.argmax(eval_dom)
