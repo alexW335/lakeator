@@ -48,12 +48,12 @@ except ImportError as e:
 class Lakeator:
     """Used to locate the source of a sound in a multi-track .wav file.
 
-    The locator class may also be used to generate su=imulated data by means of the shift_sound method, which
+    The lakeator class may also be used to generate simulated data by means of the shift_sound method, which
     takes in a mono wav file and a set of coordinates and produces a multi-track wav simulating the data which
     would have been recorded were the signal to have came from the provided location.
     """
     sample_rate: int = None
-    """The sample data of the currently loaded data."""
+    """The sample rate of the currently loaded data."""
     data: np.array = None
     """The current data, stored in a numpy array."""
     sound_speed: float = 343.1
@@ -70,7 +70,7 @@ class Lakeator:
 
         Arguments:
             mic_locations (Mx2 tuple): Matrix of microphone coordinates, in meters, relative to the center of the array.
-            file_path (None OR string): If present, will call self.load() on the given file path with the default load parameters
+            file_path (None/string): If present, will call self.load() on the given file path with the default load parameters
         """
         self.mics = np.array(mic_locations)
         self._mic_pairs_ = np.array(
@@ -82,9 +82,9 @@ class Lakeator:
             self.load(file_path)
 
     def load(self, file_path, normalise: bool=True, GCC_processor="p-PHAT", do_FFTs=True, filterpairs=False):
-        """Loads the data from the .wav file, and computes the intra-channel correlations.
+        """Loads the data from the .wav file, and computes the inter-channel correlations.
 
-        Correlations are computed and then interpolated and stored within the locator
+        Correlations are computed, interpolated, and then stored within the lakeator
         object for use in the optimisation function or wherever necessary. Pass in a numpy array of data rather than
         loading from a file by setting raw_data = True.
 
@@ -102,6 +102,7 @@ class Lakeator:
         else:
             data = file_path[1]
             self.sample_rate = file_path[0]
+
         # Convert from integer array to floating point to allow for computation
         data = data.astype('float64')
 
@@ -131,6 +132,7 @@ class Lakeator:
 
     def filter_aliased(self):
         """Filters out all frequencies above the spatial Nyquist frequency for the current array confguration.
+        This may be questionable.
         """
         fc = self.spatial_nyquist_freq
         w = fc / (self.sample_rate / 2)
@@ -179,7 +181,7 @@ class Lakeator:
         X2 = fft_pack.rfft(mic2data, n=n)
         X2star = np.conj(X2)
 
-        # Implement more processors (Eckart, ML/HT)
+        # TODO: Implement more processors (Eckart, ML/HT)
         if self._GCC_proc_== "PHAT":
             corr = fft_pack.irfft(np.exp(1j*np.angle(X1 * X2star)), n=(res_scaling * n))
 
@@ -204,10 +206,9 @@ class Lakeator:
             corr = fft_pack.irfft(X1 * X2star * proc, n=(res_scaling * n))
 
         else:
+            # Defaults to regular CC.
             proc = 1.0
             corr = fft_pack.irfft(X1 * X2star * proc, n=(res_scaling * n))
-
-        # corr = fft_pack.irfft(X1*X2star*proc, n=(res_scaling*n))
 
         corr = np.concatenate((corr[-int(res_scaling*n/2):], corr[:int(res_scaling*n/2)+1]))
 
@@ -246,7 +247,7 @@ class Lakeator:
                         block_run=True, no_fig=False, freq=False, signals=1):
         """Displays a heatmap for visual inspection of correlation-based location estimation.
 
-        Generates a grid of provided dimension/resolution, and evaluates the optimisation function at each point on the grid.
+        Generates a grid of provided dimension/resolution, and evaluates the selected DOA-estimation at each point on the grid.
         Vectorised for fast execution.
 
         Arguments:
@@ -290,7 +291,7 @@ class Lakeator:
         else:
             print("Method not provided. Defaulting to GCC.")
             self._hm_domain_ = self._objective_(xdom, ydom)
-            
+
         if no_fig:
             return self._hm_domain_
 
@@ -472,6 +473,7 @@ class Lakeator:
             numsignals (int): How many signals to localise.
             SI (np.array): The covariance matrix S, if known a priori.
         """
+        # print(X.shape, Y.shape)
         crds = np.dstack((X, Y))
         crds = np.stack([crds for _ in range(self.mics.shape[0])], 3)
         delm = np.linalg.norm(crds[:, :]-self.mics.T, axis=2)/self.sound_speed
@@ -504,7 +506,7 @@ class Lakeator:
         # Calculate 1/P_MU
         p = dot(a, np.conj(EN))*dot(np.conj(a), EN)
         p = np.sum(p, axis=-1, keepdims=False)
-
+        # print(p.shape)
         # Return P_MU
         return 1/p.real
 
@@ -669,7 +671,7 @@ class Lakeator:
         pts = lambda x: (xfunct(x), yfunct(x))
         return pts
 
-    def estimate_DOA_path(self, method, path=lambda x: (np.cos(2*np.pi*x), np.sin(2*np.pi*x)), array_GPS=False, npoints=2500, map_zoom=20, map_scale=2):
+    def estimate_DOA_path(self, method, path=lambda x: (np.cos(2*np.pi*x), np.sin(2*np.pi*x)), array_GPS=False, npoints=2500, map_zoom=20, map_scale=2, freq=False):
         """Gives an estimate of the source DOA along the `path` provided, otherwise along the unit circle if `path` is not present. 
 
         Arguments:
@@ -688,9 +690,18 @@ class Lakeator:
         
         dom = np.array(path(np.linspace(0, 1, npoints)))
 
+        if method.upper() == "GCC":
+            eval_dom = self._objective_(dom[0,:], dom[1,:])
+        elif method.upper() == "MUSIC":
+            assert freq, "Frequency must be provided for MUSIC calculation"
+            pos = fft_pack.rfftfreq(2*self.data.shape[0])*self.sample_rate
+            actidx = np.argmin(abs(pos-freq))
+            self.dataFFT = fft_pack.rfft(self.data, axis=0, n=2*self.data.shape[0])
+            eval_dom = self._MUSIC2D_((pos[actidx], actidx), dom[0:1,:].T, dom[1:,:].T).flatten()
+        else:
+            print("Method not recognised. Defaulting to GCC.")
+            eval_dom = self._objective_(dom[0,:], dom[1,:])
 
-        eval_dom = self._objective_(dom[0,:], dom[1,:])
-        
         maxidx = np.argmax(eval_dom)
         x_max = dom[0, maxidx] 
         y_max = dom[1, maxidx]
