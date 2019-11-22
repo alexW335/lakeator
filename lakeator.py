@@ -277,9 +277,9 @@ class Lakeator:
 
         xdom, ydom = np.meshgrid(xdom, ydom)
         
-        if method.upper() == "AF-MUSIC":
+        if method.upper() == "AF-MUSIC" or method.upper() == "AF_MUSIC":
             self.dataFFT = fft_pack.rfft(self.data, axis=0, n=2*self.data.shape[0])
-            self._hm_domain_ = self._hm_domain_
+            self._hm_domain_ = self.AF_MUSIC(xdom, ydom)
         elif method.upper() == "MUSIC":
             assert freq, "Frequency must be provided for MUSIC calculation"
             pos = fft_pack.rfftfreq(2*self.data.shape[0])*self.sample_rate
@@ -289,7 +289,7 @@ class Lakeator:
         elif method.upper() == "GCC":
             self._hm_domain_ = self._objective_(xdom, ydom)
         else:
-            print("Method not provided. Defaulting to GCC.")
+            print("Method not recognised. Defaulting to GCC.")
             self._hm_domain_ = self._objective_(xdom, ydom)
 
         if no_fig:
@@ -308,42 +308,6 @@ class Lakeator:
         else:
             return plt.imshow(self._hm_domain_, cmap=colormap, interpolation='none', origin='lower',
                               extent=[xrange[0], xrange[1], yrange[0], yrange[1]])
-
-    def display_radial(self, radius=10000, npoints=360, bearing=None, block_run=True, shw=True):
-        """Display a polar plot of correlation as a function of angle.
-
-        Arguments:
-            radius (float): The radius at which to evaluate the _objective_ function. Defaults to 10km for far-field approximation.
-            npoints (int): The total number of points around the circle at which to evaluate the _objective_ function.
-            bearing (int): The magnetic bearing of microphone 1, if known. Will adjust axes to include NESW bearings. If left blank, will default to degrees relative to the arm housing microphone 1.
-            block_run (bool): Pause execution of the file while the figure is open? Set to True for running in the command-line.
-            shw (bool): If True, shows the figure, if False, returns the data.
-        """
-
-        points = np.zeros((npoints, 2))
-        xs = 2*np.pi*np.arange(start=0, stop=npoints)/npoints
-        points[:, 0] = radius*np.cos(xs)
-        points[:, 1] = radius*np.sin(xs)
-
-        cors = self._objective_(points[:, 0], points[:, 1])
-        if shw:
-            if bearing!=None:
-                cors = np.roll(cors, round((-bearing/360)*npoints))
-                ax = plt.subplot(111, projection='polar')
-                ax.plot(xs, cors)
-                ax.set_xticklabels(['E', 'NE', 'N', 'NW', 'W', 'SW', 'S', 'SE'])
-                ax.set_yticklabels([])
-                ax.set_title("Estimated Acoustic Source Bearing at r={:.3f}m".format(radius))
-            else:
-                ax = plt.subplot(111, projection='polar')
-                ax.plot(xs, cors)
-                ax.set_xticklabels(['        0$^{\circ}$', '45$^{\circ}$', '90$^{\circ}$', '135$^{\circ}$',
-                                    '180$^{\circ}$', '225$^{\circ}$', '270$^{\circ}$', '315$^{\circ}$'])
-                ax.set_yticklabels([])
-                ax.set_title("Estimated Source Direction, r={:.3f}m".format(radius))
-            plt.show(block=block_run)
-        else:
-            return cors
 
     def _polynom_steervec(self, samples, max_tau=1500):
         """Takes a vector of M desired delays and a maximum lag parameter max_tau, and returns the (M, 1, 2*max_tau+1)
@@ -548,7 +512,7 @@ class Lakeator:
         Ryy = dot(Y, Y.conj().T)
         return Ryy*abs(ui[sortarg[0]])
 
-    def AF_MUSIC(self, focusing_freq=-1, npoints=1000, signals=1, shw=True, block_run=True, chunks=10):
+    def AF_MUSIC(self, xdom, ydom, focusing_freq=-1, npoints=1000, signals=1, shw=True, block_run=True, chunks=10):
         """Display a polar plot of estimated DOA using the MUSIC algorithm
 
         Arguments:
@@ -559,8 +523,6 @@ class Lakeator:
             block_run (bool): Pause execution of the file while the figure is open? Set to True for running in the command-line.
             chunks (int): How many sections to split the data up into. Will split up the data and average the result over the split sections
         """
-        omegas = np.linspace(0, 2 * np.pi, npoints, endpoint=False)
-        rest = np.zeros_like(omegas)
 
         if focusing_freq < 0:
             focusing_freq = self.spatial_nyquist_freq*0.9
@@ -624,16 +586,9 @@ class Lakeator:
 
         Rcoh = np.sum(Ryy, axis=-1)/(self.data.shape[0]//2+1)
 
-        rest, _ = self._MUSIC1D_((focusing_freq, focusing_freq_index), omegas, SI=Rcoh)
-
-        if shw:
-            plt.figure()
-            ax = plt.subplot(111, projection='polar')
-            ax.plot(omegas, rest)
-            ax.set_title("Estimated Acoustic Source Direction")
-            plt.show(block=block_run)
-        else:
-            return rest
+        rest = self._MUSIC2D_((focusing_freq, focusing_freq_index), xdom, ydom, SI=Rcoh)
+        
+        return rest
 
     def _get_path(self, GEarthFile, array_center, draw=True):
         try:
@@ -698,6 +653,9 @@ class Lakeator:
             actidx = np.argmin(abs(pos-freq))
             self.dataFFT = fft_pack.rfft(self.data, axis=0, n=2*self.data.shape[0])
             eval_dom = self._MUSIC2D_((pos[actidx], actidx), dom[0:1,:].T, dom[1:,:].T).flatten()
+        elif method.upper() == "AF-MUSIC" or method.upper() == "AF_MUSIC":
+            self.dataFFT = fft_pack.rfft(self.data, axis=0, n=2*self.data.shape[0])
+            eval_dom = self.AF_MUSIC(dom[0:1,:].T, dom[1:,:].T).flatten()
         else:
             print("Method not recognised. Defaulting to GCC.")
             eval_dom = self._objective_(dom[0,:], dom[1,:])
