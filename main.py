@@ -1,7 +1,6 @@
 #%%
 import matplotlib.pyplot as plt
 import lakeator
-from locator import locator
 
 in_file = "./data/train1exc50seconds.wav"
 out_file = "./data/train1exc50seconds_shifted.wav"
