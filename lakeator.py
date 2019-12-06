@@ -204,7 +204,15 @@ class Lakeator:
         elif self._GCC_proc_== "HB":
             proc = np.abs(X1*np.conj(X2))/(X1*np.conj(X1)*X2*np.conj(X2))
             corr = fft_pack.irfft(X1 * X2star * proc, n=(res_scaling * n))
-
+        
+        elif self._GCC_proc_[:3].lower() == 'bit':
+            # f_weighting = pickle.load("./bitpsd")
+            with open("./bitpsd", 'rb') as f:
+                f_weighting = pickle.load(f)
+            # print(f_weighting, type(f_weighting))
+            proc = f_weighting(np.fft.rfftfreq(n)*self.sample_rate)
+            corr = fft_pack.irfft(X1 * X2star * proc, n=(res_scaling * n))
+        
         else:
             # Defaults to regular CC.
             proc = 1.0
@@ -672,7 +680,8 @@ class Lakeator:
             pass
 
         p = plt.scatter(dom[0,:], dom[1,:], c=eval_dom)
-        plt.scatter(self.mics[:,0], self.mics[:,1])
+        for m in np.arange(self.mics.shape[0]):
+            plt.scatter(self.mics[m,0], self.mics[m,1], marker='x')
         plt.xlim([np.min(dom[0,:]), np.max(dom[0,:])])
         plt.ylim([np.min(dom[1,:]), np.max(dom[1,:])])
         plt.title(r"{} DOA Estimate; Max at $({:.2f}, {:.2f})$, $\theta={:.1f}^\circ$".format(pathstr if pathstr else "", x_max, y_max, theta))
@@ -730,6 +739,27 @@ def UCA(n, r, centerpoint=True, show=False):
         plt.xlabel("Horizontal Distance From Array Center [m]")
         plt.ylabel("Vertical Distance From Array Center [m]")
         plt.show()
+    return mics
+
+def UMA8(bearing=0, center=0):
+    pixel_dist = 90.0/(1171.0-77.0)
+    pixel_dist /= 1000.0
+    
+    mics = np.array([[624, 546],
+            [1147, 546],
+            [885, 93],
+            [362, 93],
+            [101, 546],
+            [362, 999], 
+            [885, 999]], dtype='float64')
+    
+    mics -= mics[0,:]
+    mics *= pixel_dist
+    theta = -bearing*np.pi/180.0
+    for idx in np.arange(mics.shape[0]):
+        mics[idx, 0] = mics[idx, 0]*np.cos(theta) - mics[idx, 1]*np.sin(theta)
+        mics[idx, 1] = mics[idx, 1]*np.cos(theta) + mics[idx, 0]*np.sin(theta)
+    mics += center
     return mics
 
 def _r(phi, r_eq=6378137.0, r_pl=6356752.3):
