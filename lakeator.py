@@ -81,7 +81,7 @@ class Lakeator:
         if file_path:
             self.load(file_path)
 
-    def load(self, file_path, normalise: bool=True, GCC_processor="p-PHAT", do_FFTs=True, filterpairs=False):
+    def load(self, file_path, normalise: bool=True, GCC_processor="p-PHAT", do_FFTs=True, filter_f=(False, False)):
         """Loads the data from the .wav file, and computes the inter-channel correlations.
 
         Correlations are computed, interpolated, and then stored within the lakeator
@@ -93,7 +93,7 @@ class Lakeator:
             normalise (bool): Normalise the data? This is a good idea, hence the truthy default state.
             GCC_processor (str): Which GCC processor to use. Options are: CC, PHAT, Scot, & RIR. See Table 1 of Knapp, C. et. al. (1976) "The Generalised Correlation Method for Estimation of Time Delay"
             do_FFTs (bool): Calculate the cross-correlations? Worth turning off to save time if only MUSIC-based algorithms are to be used.
-            filterpairs (bool): If true, filters out all spectral components above the spatial nyquist frequency for each pair of micrphones.
+            filter_f (float, float): Tuple of frequencies (in Hertz) between which to apply a bandpass filter. 
         """
         global wf, pftw
         self._GCC_proc_ = GCC_processor
@@ -105,6 +105,21 @@ class Lakeator:
 
         # Convert from integer array to floating point to allow for computation
         data = data.astype('float64')
+
+        if filter_f[0]:
+            assert isinstance(filter_f[0], float)
+            w = filter_f[0]/(self.sample_rate/2)
+            b, a = signal.butter(5, w, 'highpass')
+            for i in range(data.shape[1]):
+                data[:, i] -= signal.filtfilt(b, a, data[:, i])
+
+        if filter_f[1]:
+            assert isinstance(filter_f[1], float)
+            w = filter_f[1]/(self.sample_rate/2)
+            b, a = signal.butter(5, w, 'lowpass')
+            for i in range(data.shape[1]):
+                data[:, i] -= signal.filtfilt(b, a, data[:, i])
+
 
         # Normalise the data
         if normalise:
