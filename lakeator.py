@@ -111,14 +111,14 @@ class Lakeator:
             w = filter_f[0]/(self.sample_rate/2)
             b, a = signal.butter(5, w, 'highpass')
             for i in range(data.shape[1]):
-                data[:, i] -= signal.filtfilt(b, a, data[:, i])
+                data[:, i] -= signal.filtfilt(b, a, data[:, i], padlen=data.shape[0]-3)
 
         if filter_f[1]:
             assert isinstance(filter_f[1], float)
             w = filter_f[1]/(self.sample_rate/2)
             b, a = signal.butter(5, w, 'lowpass')
             for i in range(data.shape[1]):
-                data[:, i] -= signal.filtfilt(b, a, data[:, i])
+                data[:, i] -= signal.filtfilt(b, a, data[:, i], padlen=data.shape[0]-3)
 
 
         # Normalise the data
