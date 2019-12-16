@@ -137,8 +137,7 @@ class Lakeator:
             for prdx in np.arange(0, self._mic_pairs_.shape[0]):
                 pr = self._mic_pairs_[prdx, :]
                 self._cor_fns_["{}".format(pr)] = self._create_interp_(self.mics[pr[0], :], self.mics[pr[1], :],
-                                                                     temp_pad[:, pr[0]], temp_pad[:, pr[1]],
-                                                                          filteraliased=filterpairs)
+                                                                     temp_pad[:, pr[0]], temp_pad[:, pr[1]])
                 c += 1
             if pftw and not wf:
                 with open('pyfftw_wisdom.txt', 'wb') as f:
@@ -164,7 +163,7 @@ class Lakeator:
             t = np.fft.rfft(self.data[:,idx])
             self.data[:, idx] = np.fft.irfft(t/np.abs(t), n=2*len(t)-1)
 
-    def _create_interp_(self, mic1, mic2, mic1data, mic2data, buffer_percent=-10.0, res_scaling=5, filteraliased=False):
+    def _create_interp_(self, mic1, mic2, mic1data, mic2data, buffer_percent=-10.0, res_scaling=5):
         """This function is to create the cubic interpolants for use in the correlation function. Uses GCC.
 
         Arguments:
@@ -175,14 +174,6 @@ class Lakeator:
             buffer_percent (float): The percent headroom to give the correlation function to avoid out-of-range exceptions.
             res_scaling (float): Scales the resolution
         """
-        if filteraliased:
-            fc = self.sound_speed / (2 * np.linalg.norm(mic1 - mic2))
-            w = fc / (self.sample_rate / 2)
-            if w <= 1:
-                b, a = signal.butter(5, w, 'low')
-
-                mic1data = signal.filtfilt(b, a, mic1data, axis=0)
-                mic2data = signal.filtfilt(b, a, mic2data, axis=0)
 
         dlen = len(mic1data)
         num_samples = la.norm(mic1-mic2)*(1+buffer_percent/100.0)*(1/self.sound_speed)*self.sample_rate
