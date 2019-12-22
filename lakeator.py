@@ -257,8 +257,8 @@ class Lakeator:
 
         return np.sum(ts, axis=0)
 
-    def estimate_DOA_heatmap(self, method, xrange=(-50, 50), yrange=(-50, 50), xstep=False, ystep=False, colormap="gist_heat", shw=True,
-                        block_run=True, no_fig=False, freq=False, signals=1):
+    def estimate_DOA_heatmap(self, method, xrange=(-50, 50), yrange=(-50, 50), xstep=False, ystep=False, colormap="bone", shw=True,
+                        block_run=True, no_fig=False, freq=False, signals=1, AF_freqs=(False, False)):
         """Displays a heatmap for visual inspection of correlation-based location estimation.
 
         Generates a grid of provided dimension/resolution, and evaluates the selected DOA-estimation at each point on the grid.
@@ -276,6 +276,7 @@ class Lakeator:
             no_fig (bool): If True, return the heatmap grid rather than plot it.
             freq (float): Frequency, in Hz, at which to calculate the MUSIC spectrum.
             signals (int): The number of signals to be localised. Only relevant for MUSIC-based methods.
+            AF_freqs (float, float): Lower and upper bounds on the frequencies (in Hz) at which to evaluate the AF-MUSIC algorithm
 
         Returns:
             np.array: Returns EITHER the current (filled) heatmap domain if no_fig == True, OR a handle to the displayed figure.
@@ -293,7 +294,7 @@ class Lakeator:
         
         if method.upper() == "AF-MUSIC" or method.upper() == "AF_MUSIC":
             self.dataFFT = fft_pack.rfft(self.data, axis=0, n=2*self.data.shape[0])
-            self._hm_domain_ = self.AF_MUSIC(xdom, ydom)
+            self._hm_domain_ = self.AF_MUSIC_subset(xdom, ydom, freqs=AF_freqs)
         elif method.upper() == "MUSIC":
             assert freq, "Frequency must be provided for MUSIC calculation"
             pos = fft_pack.rfftfreq(2*self.data.shape[0])*self.sample_rate
@@ -390,6 +391,8 @@ class Lakeator:
         xout *= (2**15-1)/np.max(abs(xout))
 
         xout = xout.astype('int16')
+        # plt.plot(xout.T)
+        # plt.show()
         wav.write(output_filename, spl, xout.T)
 
     def _MUSIC1D_(self, freqtup, theta, numsignals=1, SI=None):
@@ -526,7 +529,7 @@ class Lakeator:
         Ryy = dot(Y, Y.conj().T)
         return Ryy*abs(ui[sortarg[0]])
 
-    def AF_MUSIC(self, xdom, ydom, focusing_freq=-1, npoints=1000, signals=1, shw=True, block_run=True, chunks=10):
+    def AF_MUSIC_subset(self, xdom, ydom, focusing_freq=-1, npoints=1000, signals=1, shw=True, block_run=True, chunks=10, freqs=(False, False)):
         """Display a polar plot of estimated DOA using the MUSIC algorithm
 
         Arguments:
@@ -537,23 +540,42 @@ class Lakeator:
             block_run (bool): Pause execution of the file while the figure is open? Set to True for running in the command-line.
             chunks (int): How many sections to split the data up into. Will split up the data and average the result over the split sections
         """
-
+        print("beggining subset routine")
         if focusing_freq < 0:
-            focusing_freq = self.spatial_nyquist_freq*0.9
-
-        # First generate Rxxs to get to T_autos
-        # Tauto will go in here
-        Tauto = np.zeros((self.mics.shape[0], self.mics.shape[0], self.data.shape[0]//2+1) , dtype="complex128")
-        # Rxx will go in here
-        Rxx = np.zeros((self.mics.shape[0], self.mics.shape[0], self.data.shape[0]//2+1) , dtype="complex128")
-        # Ufi will go in here
-        Ufi = np.zeros((self.mics.shape[0], self.mics.shape[0], self.data.shape[0]//2+1) , dtype="complex128")
-        # Ryy will go in here
-        Ryy = np.zeros((self.mics.shape[0], self.mics.shape[0], self.data.shape[0] // 2 + 1), dtype="complex128")
-
+            if freqs[0]:
+                if freqs[1]:
+                    focusing_freq = (freqs[0]+freqs[1])/2.0
+                else:
+                    focusing_freq = (self.sample_rate + freqs[0])/2.0
+            else:
+                if freqs[1]:
+                    focusing_freq = freqs[1]/2.0
+                else:
+                    focusing_freq = self.sample_rate/4.0
+        print(focusing_freq, freqs)
         # Split the data up into "chunks" sections
         indices = [int(x) for x in np.linspace(0, self.data.shape[0], num=chunks+1, endpoint=True)]
 
+        # The frequencies for Tauto and DFT. They all have the same length so this is fine to do outside the loop
+        pos = fft_pack.rfftfreq(self.data.shape[0]) * self.sample_rate
+
+        if freqs[0]:
+            pos = pos[pos >= freqs[0]]
+            LHSl = self.data.shape[0]//2+1-len(pos)
+        else:
+            LHSl = 0
+
+        if freqs[1]:
+            pos = pos[pos <= freqs[1]]
+            RHSl = len(pos) + LHSl
+        else:
+            RHSl = len(pos)
+        
+        print("found lhs1 and rhs1")
+
+        # Rxx will go in here
+        Rxx = np.zeros((self.mics.shape[0], self.mics.shape[0], self.data.shape[0]//2+1) , dtype="complex128")
+        
         # Calculate Rxx
         for mark in np.arange(len(indices)-1):
             dcr = self.data[indices[mark]:indices[mark+1], :]
@@ -566,23 +588,27 @@ class Lakeator:
             # print(dft.shape, self.data.shape, Tauto.shape)
 
             Rxx += np.einsum("jin,iln->jln", dft, np.conj(np.transpose(dft, (1,0,2))))/chunks
-
-        # The frequencies for Tauto and DFT. They all have the same length so this is fine to do outside the loop
-        pos = fft_pack.rfftfreq(self.data.shape[0]) * self.sample_rate
+        print("calculated Rxx")
 
         # focusing_freq_index is the index along dft and Tauto to find f_0
-        focusing_freq_index = np.argmin(np.abs(pos - focusing_freq))
+        focusing_freq_index = np.argmin(np.abs(pos - focusing_freq)) + LHSl
 
         eig_f0, v_f0 = np.linalg.eigh(Rxx[:,:,focusing_freq_index])
         Uf0 = v_f0[:, np.argsort(np.abs(eig_f0))[::-1]]
-
         # Calculate Tautos
+        # Tauto will go in here
+        Tauto = np.zeros((self.mics.shape[0], self.mics.shape[0], len(pos)) , dtype="complex128")
+        # Ufi will go in here
+        Ufi = np.zeros((self.mics.shape[0], self.mics.shape[0], self.data.shape[0]//2+1) , dtype="complex128")
         for indx, fi in enumerate(pos):
-            eig_fi, v_fi = np.linalg.eigh(Rxx[:, :, indx])
+            eig_fi, v_fi = np.linalg.eigh(Rxx[:, :, indx+LHSl])
             Ufi[:,:,indx] = v_fi[:, np.argsort(np.abs(eig_fi))[::-1]]
             Tauto[:,:,indx] = dot(Uf0, np.conj(Ufi[:,:,indx].T))/np.sqrt(pos.shape[0])
 
         # Calculate Ryy
+        # Ryy will go in here
+        Ryy = np.zeros((self.mics.shape[0], self.mics.shape[0], len(pos)), dtype="complex128")
+        
         chunks=1.0
         indices = [int(x) for x in np.linspace(0, self.data.shape[0], num=chunks + 1, endpoint=True)]
         for mark in np.arange(len(indices) - 1):
@@ -592,17 +618,20 @@ class Lakeator:
 
             # dft is RFFT of current data chunk
             dft = fft_pack.rfft(dcr, axis=0, n=self.data.shape[0]).T
+            print(dft.shape)
+            dft = dft[:, LHSl:RHSl]
             dft.shape = (dft.shape[0], 1, dft.shape[1])
-            # print(dft.shape, self.data.shape, Tauto.shape)
+            print(dft.shape, Tauto.shape, LHSl, RHSl)
 
             Yi = np.einsum("abc,bdc->adc", Tauto, dft)
             Ryy += np.einsum("jin,iln->jln", Yi, np.conj(np.transpose(Yi, (1, 0, 2)))) / chunks
 
-        Rcoh = np.sum(Ryy, axis=-1)/(self.data.shape[0]//2+1)
+        Rcoh = np.sum(Ryy, axis=-1)/(len(pos))
 
         rest = self._MUSIC2D_((focusing_freq, focusing_freq_index), xdom, ydom, SI=Rcoh)
         
         return rest
+
 
     def _get_path(self, GEarthFile, array_center, draw=True):
         try:
@@ -640,7 +669,7 @@ class Lakeator:
         pts = lambda x: (xfunct(x), yfunct(x))
         return pts
 
-    def estimate_DOA_path(self, method, path=lambda x: (np.cos(2*np.pi*x), np.sin(2*np.pi*x)), array_GPS=False, npoints=2500, map_zoom=20, map_scale=2, freq=False):
+    def estimate_DOA_path(self, method, path=lambda x: (np.cos(2*np.pi*x), np.sin(2*np.pi*x)), array_GPS=False, npoints=2500, map_zoom=20, map_scale=2, freq=False, AF_freqs=(False, False)):
         """Gives an estimate of the source DOA along the `path` provided, otherwise along the unit circle if `path` is not present. 
 
         Arguments:
@@ -669,7 +698,7 @@ class Lakeator:
             eval_dom = self._MUSIC2D_((pos[actidx], actidx), dom[0:1,:].T, dom[1:,:].T).flatten()
         elif method.upper() == "AF-MUSIC" or method.upper() == "AF_MUSIC":
             self.dataFFT = fft_pack.rfft(self.data, axis=0, n=2*self.data.shape[0])
-            eval_dom = self.AF_MUSIC(dom[0:1,:].T, dom[1:,:].T).flatten()
+            eval_dom = self.AF_MUSIC_subset(dom[0:1,:].T, dom[1:,:].T, freqs=AF_freqs).flatten()
         else:
             print("Method not recognised. Defaulting to GCC.")
             eval_dom = self._objective_(dom[0,:], dom[1,:])
@@ -761,7 +790,9 @@ def UMA8(bearing=0, center=0):
     
     mics -= mics[0,:]
     mics *= pixel_dist
-    theta = -bearing*np.pi/180.0
+    for e, m in enumerate(mics):
+        print(e+1, m)
+    theta = -(bearing+180)*np.pi/180.0
     for idx in np.arange(mics.shape[0]):
         mics[idx, 0] = mics[idx, 0]*np.cos(theta) - mics[idx, 1]*np.sin(theta)
         mics[idx, 1] = mics[idx, 1]*np.cos(theta) + mics[idx, 0]*np.sin(theta)
@@ -802,4 +833,3 @@ def _inv_proj(points, array_coords):
     lat = (np.arcsin(np.cos(c)*np.sin(phi)+(points[:,1]*np.sin(c)*np.cos(phi))/rho))*180.0/np.pi
     lon = (lam + np.arctan2(points[:,0]*np.sin(c), rho*np.cos(phi)*np.cos(c)-points[:,1]*np.sin(phi)*np.sin(c)))*180.0/np.pi
     return lat, lon
-
