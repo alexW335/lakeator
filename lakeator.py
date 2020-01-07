@@ -18,6 +18,9 @@ from motionless import DecoratedMap, LatLonMarker
 import requests
 import imageio
 import matplotlib.image as mpimg
+from PIL import Image
+from pyproj import Transformer
+from pyproj import Proj
 
 
 
@@ -65,13 +68,15 @@ class Lakeator:
     _GCC_proc_ = ""
 
     def __init__(self, mic_locations=((0.325, 0.000), (-0.160, 0.248), (-0.146, -0.258), (-0.001, 0.002)),
-                 file_path=None):
+                 file_path=None, epsg=2193):
         """Initialise the Locator. If you pass in a file path "example.wav" here it will call self.load(example.wav).
 
         Arguments:
             mic_locations (Mx2 tuple): Matrix of microphone coordinates, in meters, relative to the center of the array.
             file_path (None/string): If present, will call self.load() on the given file path with the default load parameters
+            epsg (int): EPSG Geodetic Parameter Dataset code for GPS coordinate system. Common EPSG codes include EPSG:4326; WGS 84, and EPSG:3857; Web Mercator projection used for display by many web-based mapping tools, including Google Maps and OpenStreetMap. 2193 is NZTM2000.
         """
+        self.epsg=2193
         self.mics = np.array(mic_locations)
         self._mic_pairs_ = np.array(
             [p for p in multiset_combinations(np.arange(0, self.mics.shape[0], dtype="int16"), n=2)])
@@ -258,7 +263,7 @@ class Lakeator:
         return np.sum(ts, axis=0)
 
     def estimate_DOA_heatmap(self, method, xrange=(-50, 50), yrange=(-50, 50), xstep=False, ystep=False, colormap="bone", shw=True,
-                        block_run=True, no_fig=False, freq=False, signals=1, AF_freqs=(False, False)):
+                        block_run=True, no_fig=False, freq=False, signals=1, AF_freqs=(False, False), array_GPS=False, save_GIS=False):
         """Displays a heatmap for visual inspection of correlation-based location estimation.
 
         Generates a grid of provided dimension/resolution, and evaluates the selected DOA-estimation at each point on the grid.
@@ -276,7 +281,9 @@ class Lakeator:
             no_fig (bool): If True, return the heatmap grid rather than plot it.
             freq (float): Frequency, in Hz, at which to calculate the MUSIC spectrum.
             signals (int): The number of signals to be localised. Only relevant for MUSIC-based methods.
-            AF_freqs (float, float): Lower and upper bounds on the frequencies (in Hz) at which to evaluate the AF-MUSIC algorithm
+            AF_freqs (float, float): Lower and upper bounds on the frequencies (in Hz) at which to evaluate the AF-MUSIC algorithm.
+            array_GPS (bool/tuple): False, or tuple of GPS lat/long.
+            save_GIS (bool): Save the image as a tif wth a corresponding .tif.points file for use in GIS software? Requires array_GPS
 
         Returns:
             np.array: Returns EITHER the current (filled) heatmap domain if no_fig == True, OR a handle to the displayed figure.
@@ -291,6 +298,8 @@ class Lakeator:
         self._hm_domain_ = np.zeros((len(ydom), len(xdom)))
 
         xdom, ydom = np.meshgrid(xdom, ydom)
+ 
+        self._hm_corners_ = np.array([[[xrange[0], yrange[1]], [xrange[1], yrange[1]]],[[xrange[0], yrange[0]], [xrange[1], yrange[0]]]])
         
         if method.upper() == "AF-MUSIC" or method.upper() == "AF_MUSIC":
             self.dataFFT = fft_pack.rfft(self.data, axis=0, n=2*self.data.shape[0])
@@ -323,6 +332,58 @@ class Lakeator:
         else:
             return plt.imshow(self._hm_domain_, cmap=colormap, interpolation='none', origin='lower',
                               extent=[xrange[0], xrange[1], yrange[0], yrange[1]])
+    
+    def heatmap_to_GIS(self, array_coords, EPSG, projected_EPSG=2193, target_EPSG=3857):
+        """Exports the current heatmap domain to ./heatmap.tif, as well as an auxillary CPS file ./heatmap.tif.points
+        which contains the georeferencing data for QGIS. Converts from `EPSG' to `target_EPSG' (default NZTM2000)
+        (default WGS84/Pseudo-Mercator; the "Web Mecator Projection")
+        If changing target_EPSG, must be in cartesian coordinates to allow for addition of array_coords to bounding box dimensions.
+        """
+        imdata = self._hm_domain_ - np.min(self._hm_domain_)
+        imdata = 255.0*imdata/np.max(imdata)
+        imdata = imdata[::-1,:]
+        im = Image.fromarray(imdata.astype(np.uint8))
+        im.save('./heatmap.tif')
+        print("EPSG, projected_EPSG, target_EPSG:", EPSG, projected_EPSG, target_EPSG)
+        with open("./heatmap.tif.points", 'w') as w:
+            ts1 = Transformer.from_crs(EPSG, projected_EPSG, always_xy=True)
+            xt, yt = ts1.transform(array_coords[0], array_coords[1])
+            # print(xt, yt)
+
+            ts2 = Transformer.from_crs(projected_EPSG, target_EPSG, always_xy=True)
+            test = []
+            
+            w.write("mapX,mapY,pixelX,pixelY,enable,dX,dY,residual\n")
+            # print("array_coords", array_coords)
+            (xs, ys, _) = ts1.transform(array_coords[0], array_coords[1], tt=2020.0)
+            # print("Array coords in projected EPSG:", xs, ys)
+
+            # print("self._hm_corners_:", self._hm_corners_)
+            xp, yp, _, _ = ts2.transform(xx=xs+self._hm_corners_[1,0,0], yy=ys+self._hm_corners_[1,0,1], zz=0, tt=2020.0)
+            # print("xs+self._hm_corners_[1,0,0], ys+self._hm_corners_[1,0,1]:", self._hm_corners_[1,0,0], self._hm_corners_[1,0,1])
+            # print("xp, yp:", xp, yp)
+            test.append([xp, yp])
+            w.write("{},{},{},{},1,0,0,0\n".format(xp, yp, 0, -self._hm_domain_.shape[1]+1))
+
+            xp, yp, _, _ = ts2.transform(xx=xs+self._hm_corners_[0,0,0], yy=ys+self._hm_corners_[0,0,1], zz=0, tt=2020.0)
+            # print("xs+self._hm_corners_[0,0,0], ys+self._hm_corners_[0,0,1]:", self._hm_corners_[0,0,0], self._hm_corners_[0,0,1])
+            # print("xp, yp:", xp, yp)
+            test.append([xp, yp])
+            w.write("{},{},{},{},1,0,0,0\n".format(xp, yp, 0, 0))
+
+            xp, yp, _, _ = ts2.transform(xx=xs+self._hm_corners_[0,1,0], yy=ys+self._hm_corners_[0,1,1], zz=0, tt=2020.0)
+            # print("xs+self._hm_corners_[0,1,0], ys+self._hm_corners_[0,1,1]:", self._hm_corners_[0,1,0], self._hm_corners_[0,1,1])
+            # print("xp, yp:", xp, yp)
+            test.append([xp, yp])
+            w.write("{},{},{},{},1,0,0,0\n".format(xp, yp, self._hm_domain_.shape[0]-1, 0))
+
+            xp, yp, _, _ = ts2.transform(xx=xs+self._hm_corners_[1,1,0], yy=ys+self._hm_corners_[1,1,1], zz=0, tt=2020.0)
+            # print("xs+self._hm_corners_[1,1,0], ys+self._hm_corners_[1,1,1]:", self._hm_corners_[1,1,0], self._hm_corners_[1,1,1])
+            # print("xp, yp:", xp, yp)
+            test.append([xp, yp])
+            w.write("{},{},{},{},1,0,0,0".format(xp, yp, self._hm_domain_.shape[0]-1, -self._hm_domain_.shape[1]+1))
+
+        return
 
     def _polynom_steervec(self, samples, max_tau=1500):
         """Takes a vector of M desired delays and a maximum lag parameter max_tau, and returns the (M, 1, 2*max_tau+1)
@@ -790,8 +851,8 @@ def UMA8(bearing=0, center=0):
     
     mics -= mics[0,:]
     mics *= pixel_dist
-    for e, m in enumerate(mics):
-        print(e+1, m)
+    # for e, m in enumerate(mics):
+    #     print(e+1, m)
     theta = -(bearing+180)*np.pi/180.0
     for idx in np.arange(mics.shape[0]):
         mics[idx, 0] = mics[idx, 0]*np.cos(theta) - mics[idx, 1]*np.sin(theta)
@@ -823,13 +884,14 @@ def _stereo_proj(points, array_coords):
 
 def _inv_proj(points, array_coords):
     # points = points[:,::-1]
-    # print("points", points)
+    print("points", points)
     lam, phi, _ = np.array(array_coords)*np.pi/180.0
-    # print("lam, phi", lam, phi)
+    print("lam, phi", lam, phi)
     rho = np.linalg.norm(points, axis=1)
-    # print("rho", rho)
+    print("rho", rho)
     c = 2*np.arctan2(rho, 2*_r(phi))
-    # print("c", c)
+    print("c", c)
     lat = (np.arcsin(np.cos(c)*np.sin(phi)+(points[:,1]*np.sin(c)*np.cos(phi))/rho))*180.0/np.pi
     lon = (lam + np.arctan2(points[:,0]*np.sin(c), rho*np.cos(phi)*np.cos(c)-points[:,1]*np.sin(phi)*np.sin(c)))*180.0/np.pi
+    print("lat, lon", lat, lon)
     return lat, lon
