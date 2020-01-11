@@ -139,11 +139,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self._hm_xrange = [-50, 50]
         self._hm_yrange = [-50, 50]
 
-        
-
-        # Initialise the axis on the canvas
-        self._static_ax = self.static_canvas.figure.subplots()
-        cid = self.static_canvas.mpl_connect('draw_event', self.ondraw)
 
         self.last_zoomed = [self._hm_xrange[:], self._hm_yrange[:]]
 
@@ -171,13 +166,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.colormap = c
 
     def generate_heatmap(self):
+        # Initialise the axis on the canvas
+        self.static_canvas.figure.clf()
+        self._static_ax = self.static_canvas.figure.subplots()
+        cid = self.static_canvas.mpl_connect('draw_event', self.ondraw)
         self.statusBar().showMessage('Calculating heatmap...')
         # Finish this. Setting it up so that you can zoom and then hit "recalculate"
         # dom = self.loc.estimate_DOA_heatmap(self.algo, xrange=self._hm_xrange, yrange=self._hm_yrange, no_fig=True)
         dom = self.loc.estimate_DOA_heatmap(self.algo, xrange=self.last_zoomed[0], yrange=self.last_zoomed[1], no_fig=True)
         
         self.img = self._static_ax.imshow(dom, cmap=self.colormap, interpolation='none', origin='lower',
-                   extent=[self._hm_xrange[0], self._hm_xrange[1], self._hm_yrange[0], self._hm_yrange[1]])
+                   extent=[self.last_zoomed[0][0], self.last_zoomed[0][1], self.last_zoomed[1][0], self.last_zoomed[1][1]])
         print(type(self.img))
         self._static_ax.set_xlabel("Horiz. Dist. from Center of Array [m]")
         self._static_ax.set_ylabel("Vert. Dist. from Center of Array [m]")
