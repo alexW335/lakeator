@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 import lakeator
+import Dialogs
 from copy import copy
 
 # from PyQt5 import QtGui
@@ -34,7 +35,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.saveGisAction = QtWidgets.QAction("&Save to GIS", self)
         self.saveGisAction.setShortcut("Ctrl+G")
         self.saveGisAction.setStatusTip("Save the heatmap as a QGIS-readable georeferenced TIFF file.")
-        self.saveGisAction.triggered.connect(self.file_open)
+        self.saveGisAction.triggered.connect(self.exportGIS)
         self.saveGisAction.setDisabled(True)
 
         self.statusBar()
@@ -54,7 +55,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         setGPSCoords = QtWidgets.QAction("&Set GPS Coordinates", self)
         setGPSCoords.setShortcut("Ctrl+C")
         setGPSCoords.setStatusTip("Set the GPS coordinates for the array, and ESPG code for the CRS.")
-        setGPSCoords.triggered.connect(self.file_open)
+        setGPSCoords.triggered.connect(self.get_GPS_info)
 
         arrayMenu = mainMenu.addMenu("&Array")
         arrayMenu.addAction(setArrayDesign)
@@ -138,11 +139,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Set the default algorithm
         self.algo = "GCC"
 
-        # Set the default EPSG code
-        self._EPSG = 4326 
+        # Set the default EPSG codes
+        self._EPSG = 4326         # WGS84 (lat/long)   https://epsg.io/4326
+        self._projected_EPSG=2193 # NZTM2000 projected https://epsg.io/2193
+        self._target_EPSG=3857    # Web Mercator       https://epsg.io/3857
+        self._GPS_coords = (172.35855528, -43.81248292)
 
-        # Boolean to keep track of whether we have GPS information for the array
+        # Boolean to keep track of whether we have GPS information for the array, and an image
         self._has_GPS = False
+        self._has_heatmap = False
 
         # Keep track of the currently opened file
         self.open_filename = ""
@@ -199,13 +204,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.static_canvas.figure.colorbar(self.img)
         self.static_canvas.draw()
 
-        # Once there's an image being displayed, you can save it and changethe colours
+        # Once there's an image being displayed, you can save it and change the colours
         self.saveAction.setDisabled(False)
         if self._has_GPS:
             self.saveGisAction.setDisabled(False)
         self.statusBar().showMessage('Ready.')
         self.colMenu.setDisabled(False)
         self.invert.setDisabled(False)
+        self._has_heatmap = True
         return
 
     def get_mic_locs(self, filePath="arrayconfig.txt"):
@@ -235,6 +241,32 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         name = name + ".png"
         self.static_canvas.figure.savefig(name)
         return
+
+    def get_GPS_info(self):
+        """Listener for the change GPS menu item"""
+        self.setGPSInfoDialog = Dialogs.GPSPopUp(coords=self._GPS_coords, EPSG=self._EPSG)
+        self.setGPSInfoDialog.activate.clicked.connect(self.changeGPSInfo)
+        self.setGPSInfoDialog.exec()
+
+    def changeGPSInfo(self):
+        """ Listener for the operator/reviewer dialog.
+        """
+        lat, long, EPSG, projEPSG, targetEPSG = self.setGPSInfoDialog.getValues()
+        self._GPS_coords = (lat, long)
+        self._EPSG = EPSG
+        self._has_GPS = True
+        if self._has_heatmap:
+            self.saveGisAction.setDisabled(False)
+        # self.statusRight.setText("Operator: " + self.operator + ", Reviewer: "+self.reviewer)
+        self.setGPSInfoDialog.close()
+
+    def exportGIS(self):
+        defaultname = self.open_filename[:-4] + "_" + self.algo + "_heatmap.tif"
+        name, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save image & GIS Metadata", defaultname, "TIF files *.tif;; All Files *")
+        name = name + ".tif"
+        self.loc.heatmap_to_GIS(self._GPS_coords, self._EPSG, projected_EPSG=self._projected_EPSG, target_EPSG=self._target_EPSG, filepath=name)
+        return
+
 
 # Run the thing
 if __name__ == "__main__":

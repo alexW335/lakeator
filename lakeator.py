@@ -333,7 +333,7 @@ class Lakeator:
             return plt.imshow(self._hm_domain_, cmap=colormap, interpolation='none', origin='lower',
                               extent=[xrange[0], xrange[1], yrange[0], yrange[1]])
     
-    def heatmap_to_GIS(self, array_coords, EPSG, projected_EPSG=2193, target_EPSG=3857):
+    def heatmap_to_GIS(self, array_coords, EPSG, projected_EPSG=2193, target_EPSG=3857, filepath="./heatmap.tif"):
         """Exports the current heatmap domain to ./heatmap.tif, as well as an auxillary CPS file ./heatmap.tif.points
         which contains the georeferencing data for QGIS. Converts from `EPSG' to `target_EPSG' (default NZTM2000)
         (default WGS84/Pseudo-Mercator; the "Web Mecator Projection")
@@ -343,9 +343,9 @@ class Lakeator:
         imdata = 255.0*imdata/np.max(imdata)
         imdata = imdata[::-1,:]
         im = Image.fromarray(imdata.astype(np.uint8))
-        im.save('./heatmap.tif')
+        im.save('{}'.format(filepath))
         print("EPSG, projected_EPSG, target_EPSG:", EPSG, projected_EPSG, target_EPSG)
-        with open("./heatmap.tif.points", 'w') as w:
+        with open("{}.points".format(filepath), 'w') as w:
             ts1 = Transformer.from_crs(EPSG, projected_EPSG, always_xy=True)
             xt, yt = ts1.transform(array_coords[0], array_coords[1])
             # print(xt, yt)
