@@ -173,10 +173,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 self.static_canvas.draw()
             except ValueError as inst:
                 print(type(inst), inst)
+        self._save_settings()
 
     def _setcol(self, c):
         """Sets the colourmap attribut to the name of the cmap - needed as I'm using strings to set the cmaps rather than cmap objects"""
         self.settings["heatmap"]["cmap"] = self.img.get_cmap().name
+        self._save_settings()
 
     def generate_heatmap(self):
         """Calculate and draw the heatmap"""
@@ -246,6 +248,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.settings["array"]["GPS"]["EPSG"]["projected"] = projEPSG
         self.settings["array"]["GPS"]["EPSG"]["target"] = targetEPSG
         self.settings["array"]["GPS"]["coordinates"] = (lat, long)
+        self._save_settings()
 
         self._has_GPS = True
         if self._has_heatmap:
@@ -263,6 +266,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         """
         miclocs = self.setMicsInfoDialog.getValues()
         self.settings["array"]["mic_locations"] = miclocs
+        self._save_settings()
         self.loc = lakeator.Lakeator(self.settings["array"]["mic_locations"])
         self.setMicsInfoDialog.close()
 
