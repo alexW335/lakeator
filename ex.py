@@ -138,6 +138,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self._hm_yrange = [-50, 50]
 
         # Keep track of the current view window
+        # ALTER THIS SO THAT IT REEVALUATES ON EVERY ZOOM SO THAT RESOLUTION IS NEVER LOST. CHANGE RECALCULATE TO ONLY 
+        # RESCALE COLOURBAR IF NOT ON ORIGINAL ZOOM LEVEL. THEN OVERRIDE THE HOME BUTTON TO TAKE BACK TO THE ORIGINAL ZOOM 
+        # LEVEL
         self.last_zoomed = [self._hm_xrange[:], self._hm_yrange[:]]
 
         # Set the default EPSG codes
@@ -266,6 +269,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         """
         miclocs = self.setMicsInfoDialog.getValues()
         self.settings["array"]["mic_locations"] = miclocs
+        # print(miclocs, type(miclocs))
+        # raise EnvironmentError
         self._save_settings()
         self.loc = lakeator.Lakeator(self.settings["array"]["mic_locations"])
         self.setMicsInfoDialog.close()
@@ -287,7 +292,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     
     def _save_settings(self, settings_file="./settings.txt"):
         with open(settings_file, "w") as f:
-            self.settings = json.dumps(f, sort_keys=True, indent=4)
+            stngsstr = json.dumps(self.settings, sort_keys=True, indent=4)
+            f.write(stngsstr)
 
 
 

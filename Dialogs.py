@@ -78,8 +78,8 @@ class MicPositionPopUp(QtWidgets.QDialog):
     
     def arrayToStr(self, arr):
         strout = ""
-        for row in range(arr.shape[0]):
-            strout += "{}, {}\n".format(arr[row, 0], arr[row, 1])
+        for row in range(len(arr)):
+            strout += "{}, {}\n".format(arr[row][0], arr[row][1])
         return strout
     
     def getValues(self):
@@ -89,5 +89,5 @@ class MicPositionPopUp(QtWidgets.QDialog):
         for ind in instr:
             a = ind.split(',')
             tmp.append([float(a[0].strip()), float(a[1].strip())])
-        tmp = array(tmp)
+        # tmp = array(tmp)
         return tmp

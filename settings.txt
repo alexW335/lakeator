@@ -1,9 +1,9 @@
 {
     "algorithm": {
         "AF-MUSIC": {
+            "f_0": 1000,
             "f_max": 22050,
-            "f_min": 0,
-            "f_0": 1000
+            "f_min": 0
         },
         "GCC": {
             "processor": "p-PHAT"

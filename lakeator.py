@@ -163,7 +163,6 @@ class Lakeator:
         return
 
     def _whiten_signal_(self):
-
         for idx in np.arange(self.mics.shape[0]):
             t = np.fft.rfft(self.data[:,idx])
             self.data[:, idx] = np.fft.irfft(t/np.abs(t), n=2*len(t)-1)
