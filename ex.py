@@ -1,19 +1,20 @@
 import sys
-import numpy as np
-import lakeator
-import Dialogs
 import json
-from copy import copy
 
-# from PyQt5 import QtGui
 from matplotlib.backends.qt_compat import QtCore, QtWidgets, QtGui
 from matplotlib.backends.backend_qt5agg import (FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
 from matplotlib.pyplot import colormaps
 
+import lakeator
+import Dialogs
+
+
 
 class ApplicationWindow(QtWidgets.QMainWindow):
+    """Main application window."""
     def __init__(self):
+        """Initialise the application - includes loading settings from disc, initialising a lakeator, and setting up the GUI."""
         super().__init__()
         self._load_settings()
 
@@ -21,13 +22,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(self._main)
         layout = QtWidgets.QHBoxLayout(self._main)
 
-        self.setWindowTitle('Locator') 
+        self.setWindowTitle('Locator')
         self.setWindowIcon(QtGui.QIcon("./kiwi.png"))
 
-        loadAction = QtWidgets.QAction("&Load File", self)
-        loadAction.setShortcut("Ctrl+L")
-        loadAction.setStatusTip("Load a multichannel .wav file.")
-        loadAction.triggered.connect(self.file_open)
+        self.loadAction = QtWidgets.QAction("&Load File", self)
+        self.loadAction.setShortcut("Ctrl+L")
+        self.loadAction.setStatusTip("Load a multichannel .wav file.")
+        self.loadAction.triggered.connect(self.file_open)
 
         self.saveAction = QtWidgets.QAction("&Save Image", self)
         self.saveAction.setShortcut("Ctrl+S")
@@ -45,7 +46,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         mainMenu = self.menuBar()
         fileMenu = mainMenu.addMenu("&File")
-        fileMenu.addAction(loadAction)
+        fileMenu.addAction(self.loadAction)
         fileMenu.addAction(self.saveAction)
         fileMenu.addAction(self.saveGisAction)
 
@@ -69,12 +70,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         setDomain.setStatusTip("Configure distances left/right up/down at which to generate the heatmap.")
         setDomain.triggered.connect(self.getBoundsInfo)
 
-        # changeMethod = QtWidgets.QAction("&Change/Configure Method", self)
-        # changeMethod.setShortcut("Ctrl+M")
-        # changeMethod.setStatusTip("Switch between and configure the AF-MUSIC and GCC algorithms.")
-        # changeMethod.triggered.connect(self.file_open)
-        # changeMethod.setDisabled(True)
-
         self.refreshHeatmap = QtWidgets.QAction("&Calculate", self)
         self.refreshHeatmap.setShortcut("Ctrl+H")
         self.refreshHeatmap.setStatusTip("(Re)calculate heatmap.")
@@ -89,13 +84,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         heatmapMenu = mainMenu.addMenu("&Heatmap")
         heatmapMenu.addAction(setDomain)
-        # heatmapMenu.addAction(changeMethod)
-
 
         # Initialise canvas
         self.static_canvas = FigureCanvas(Figure(figsize=(5, 3)))
         layout.addWidget(self.static_canvas)
-        
+
         # Add a navbar
         navbar = NavigationToolbar(self.static_canvas, self)
         self.addToolBar(QtCore.Qt.BottomToolBarArea, navbar)
@@ -116,14 +109,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             if colour[-2:] != "_r":
                 cm = self.colMenu.addAction(colour)
                 cm.setCheckable(True)
-                if colour==self.settings["heatmap"]["cmap"][:-2]:
+                if colour == self.settings["heatmap"]["cmap"][:-2]:
                     cm.setChecked(True)
                 receiver = lambda checked, cmap=colour: self.img.set_cmap(cmap)
                 cm.triggered.connect(receiver)
                 cm.triggered.connect(self._setcol)
                 cm.triggered.connect(self.static_canvas.draw)
                 colGroup.addAction(cm)
-        
+
         self.invert = QtWidgets.QAction("&Invert colour map", self)
         self.invert.setShortcut("Ctrl+I")
         self.invert.setStatusTip("Invert the current colourmap.")
@@ -143,18 +136,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         for alg in sorted(["GCC", "MUSIC", "AF-MUSIC"], key=str.casefold):
             cm = self.algChoice.addAction(alg)
             cm.setCheckable(True)
-            if alg==self.settings["algorithm"]["current"]:
+            if alg == self.settings["algorithm"]["current"]:
                 cm.setChecked(True)
             receiver = lambda checked, al=alg: self.setAlg(al)
             cm.triggered.connect(receiver)
-            # cm.triggered.connect(self.static_canvas.draw)
             colGroup.addAction(cm)
 
         self.params = QtWidgets.QAction("&Algorithm Settings", self)
         self.params.setStatusTip("Alter algorithm-specific settings.")
         self.params.triggered.connect(self.getAlgoInfo)
         algoMenu.addAction(self.params)
-        
+
         # Display a "ready" message
         self.statusBar().showMessage('Ready')
 
@@ -164,25 +156,25 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         # Keep track of the currently opened file
         self.open_filename = ""
-        
+
         self.loc = lakeator.Lakeator(self.settings["array"]["mic_locations"])
-    
+
     def setAlg(self, alg):
+        """Change the current algorithm to `alg', and write settings to disc."""
         self.settings["algorithm"]["current"] = alg
         self._save_settings()
-    
+
     def ondraw(self, event):
-        """Return the new axis limits when the screen is resized"""
+        """Return the new axis limits when the figure is zoomed, but not on window resize."""
         if self._has_heatmap and (self.settings["heatmap"]["xlim"][0] != self._static_ax.get_xlim()[0] or \
             self.settings["heatmap"]["xlim"][1] != self._static_ax.get_xlim()[1] or \
             self.settings["heatmap"]["ylim"][0] != self._static_ax.get_ylim()[0] or \
             self.settings["heatmap"]["ylim"][1] != self._static_ax.get_ylim()[1]):
-            # print("zoom changed: ", self.settings["heatmap"]["xlim"][0], self._static_ax.get_xlim()[0]) 
             self.refreshView.setDisabled(False)
         self.last_zoomed = [self._static_ax.get_xlim(), self._static_ax.get_ylim()]
-        return
-    
+
     def recalculateOnView(self):
+        """If the image has been zoomed, calling this method will recalculate the heatmap on the current zoom level."""
         if hasattr(self, "last_zoomed"):
             self.settings["heatmap"]["xlim"] = self.last_zoomed[0]
             self.settings["heatmap"]["ylim"] = self.last_zoomed[1]
@@ -191,7 +183,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
 
     def invert_heatmap(self):
-        """Adds or removes _r to the current colourmap before setting it and redrawing the canvas"""
+        """Add or remove _r to the current colourmap before setting it (to invert the colourmap), then redraw the canvas."""
         if self.settings["heatmap"]["cmap"][-2:] == "_r":
             self.settings["heatmap"]["cmap"] = self.settings["heatmap"]["cmap"][:-2]
             self.img.set_cmap(self.settings["heatmap"]["cmap"])
@@ -206,12 +198,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self._save_settings()
 
     def _setcol(self, c):
-        """Sets the colourmap attribut to the name of the cmap - needed as I'm using strings to set the cmaps rather than cmap objects"""
+        """Set the colourmap attribute to the name of the cmap - needed as I'm using strings to set the cmaps rather than cmap objects."""
         self.settings["heatmap"]["cmap"] = self.img.get_cmap().name
         self._save_settings()
 
     def generate_heatmap(self):
-        """Calculate and draw the heatmap"""
+        """Calculate and draw the heatmap."""
         # Initialise the axis on the canvas, refresh the screen
         self.static_canvas.figure.clf()
         self._static_ax = self.static_canvas.figure.subplots()
@@ -221,15 +213,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Show a loading message while the user waits
         self.statusBar().showMessage('Calculating heatmap...')
         # dom = self.loc.estimate_DOA_heatmap(self.settings["algorithm"]["current"], xrange=self.last_zoomed[0], yrange=self.last_zoomed[1], no_fig=True)
-        
-        dom = self.loc.estimate_DOA_heatmap(self.settings["algorithm"]["current"], xrange=self.settings["heatmap"]["xlim"], 
-                                            yrange=self.settings["heatmap"]["ylim"], no_fig=True, freq=self.settings["algorithm"]["MUSIC"]["freq"], 
-                                            AF_freqs=(self.settings["algorithm"]["AF-MUSIC"]["f_min"], self.settings["algorithm"]["AF-MUSIC"]["f_max"]), 
+
+        dom = self.loc.estimate_DOA_heatmap(self.settings["algorithm"]["current"], xrange=self.settings["heatmap"]["xlim"],
+                                            yrange=self.settings["heatmap"]["ylim"], no_fig=True, freq=self.settings["algorithm"]["MUSIC"]["freq"],
+                                            AF_freqs=(self.settings["algorithm"]["AF-MUSIC"]["f_min"], self.settings["algorithm"]["AF-MUSIC"]["f_max"]),
                                             f_0=self.settings["algorithm"]["AF-MUSIC"]["f_0"])
 
         # Show the image and set axis labels & title      
         self.img = self._static_ax.imshow(dom, cmap=self.settings["heatmap"]["cmap"], interpolation='none', origin='lower',
-                   extent=[self.settings["heatmap"]["xlim"][0], self.settings["heatmap"]["xlim"][1], self.settings["heatmap"]["ylim"][0], self.settings["heatmap"]["ylim"][1]])
+                                          extent=[self.settings["heatmap"]["xlim"][0], self.settings["heatmap"]["xlim"][1], 
+                                          self.settings["heatmap"]["ylim"][0], self.settings["heatmap"]["ylim"][1]])
         self._static_ax.set_xlabel("Horiz. Dist. from Center of Array [m]")
         self._static_ax.set_ylabel("Vert. Dist. from Center of Array [m]")
         self._static_ax.set_title("{}-based Source Location Estimate".format(self.settings["algorithm"]["current"]))
@@ -246,39 +239,37 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.colMenu.setDisabled(False)
         self.invert.setDisabled(False)
         self._has_heatmap = True
-        return
 
     def file_open(self):
-        """Let the user pick a file to open, and then calculate the cross-correlations"""
+        """Let the user pick a file to open, and then calculate the cross-correlations."""
         self.statusBar().showMessage('Loading...')
         name, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load .wav file", "./", "Audio *.wav")
-        self.loc.load(name)
-        self.open_filename = name
-        self.refreshHeatmap.setDisabled(False)
-        self.statusBar().showMessage('Ready.')
-        return
-    
+        if name:
+            self.loc.load(name)
+            self.open_filename = name
+            self.refreshHeatmap.setDisabled(False)
+            self.statusBar().showMessage('Ready.')
+
     def save_display(self):
-        """Save the heatmap and colourbar with a sensible default filename"""
+        """Save the heatmap and colourbar with a sensible default filename."""
         defaultname = self.open_filename[:-4] + "_" + self.settings["algorithm"]["current"] + "_heatmap.png"
         name, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save image", defaultname, "PNG files *.png;; All Files *")
-        name = name + ".png"
-        self.static_canvas.figure.savefig(name)
-        return
+        if name:
+            name = name + ".png"
+            self.static_canvas.figure.savefig(name)
 
     def get_GPS_info(self):
-        """Listener for the change GPS menu item"""
-        self.setGPSInfoDialog = Dialogs.GPSPopUp(coords=self.settings["array"]["GPS"]["coordinates"], 
-                                                EPSG=self.settings["array"]["GPS"]["EPSG"]["input"], 
-                                                pEPSG=self.settings["array"]["GPS"]["EPSG"]["projected"], 
-                                                tEPSG=self.settings["array"]["GPS"]["EPSG"]["target"],)
+        """Create a popup to listen for the GPS info, and connect the listener."""
+        self.setGPSInfoDialog = Dialogs.GPSPopUp(coords=self.settings["array"]["GPS"]["coordinates"],
+                                                 EPSG=self.settings["array"]["GPS"]["EPSG"]["input"],
+                                                 pEPSG=self.settings["array"]["GPS"]["EPSG"]["projected"],
+                                                 tEPSG=self.settings["array"]["GPS"]["EPSG"]["target"])
         self.setGPSInfoDialog.activate.clicked.connect(self.changeGPSInfo)
         self.setGPSInfoDialog.exec()
 
     def changeGPSInfo(self):
-        """ Listener for the change gps info dialog.
-        """
-        lat, long, EPSG, projEPSG, targetEPSG = self.setGPSInfoDialog.getValues() 
+        """Listener for the change GPS info dialog - writes the new information to disc and enables the ExportToGIS option."""
+        lat, long, EPSG, projEPSG, targetEPSG = self.setGPSInfoDialog.getValues()
         self.settings["array"]["GPS"]["EPSG"]["input"] = EPSG
         self.settings["array"]["GPS"]["EPSG"]["projected"] = projEPSG
         self.settings["array"]["GPS"]["EPSG"]["target"] = targetEPSG
@@ -291,22 +282,22 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setGPSInfoDialog.close()
 
     def get_array_info(self):
-        """Listener for the change array info menu item"""
+        """Create a popup to listen for the mic position info, and connect the listener."""
         self.setMicsInfoDialog = Dialogs.MicPositionPopUp(cur_locs=self.settings["array"]["mic_locations"])
         self.setMicsInfoDialog.activate.clicked.connect(self.changeArrayInfo)
         self.setMicsInfoDialog.exec()
 
     def changeArrayInfo(self):
-        """ Listener change array info dialog.
-        """
+        """Listener for the change array info dialog - writes the information to disc and re-initialises the locator."""
+        # TODO: reload current file, or disable heatmap again after this call
         miclocs = self.setMicsInfoDialog.getValues()
         self.settings["array"]["mic_locations"] = miclocs
         self._save_settings()
-        self.loc = lakeator.Lakeator(self.settings["array"]["mic_locations"])
+        self.loc = lakeator.Lakeator(self.settings["array"]["mic_locations"]) 
         self.setMicsInfoDialog.close()
 
     def getBoundsInfo(self):
-        """Listener for the change array info menu item"""
+        """Create a popup to listen for the change heatmap bounds info, and connect the listener."""
         l, r = self.settings["heatmap"]["xlim"]
         d, u = self.settings["heatmap"]["ylim"]
         self.setBoundsInfoDialog = Dialogs.HeatmapBoundsPopUp(l, r, u, d)
@@ -314,45 +305,47 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setBoundsInfoDialog.exec()
 
     def changeBoundsInfo(self):
-        """ Listener change array info dialog.
-        """
+        """ Listener change heatmap bounds info dialog - save the information to disc and regenerate the heatmap on the new zoom area."""
         l_new, r_new, u_new, d_new = self.setBoundsInfoDialog.getValues()
         self.settings["heatmap"]["xlim"] = [l_new, r_new]
         self.settings["heatmap"]["ylim"] = [d_new, u_new]
         self._save_settings()
         self.generate_heatmap()
-        # self.loc = lakeator.Lakeator(self.settings["array"]["mic_locations"])
         self.setBoundsInfoDialog.close()
 
     def getAlgoInfo(self):
-        """Listener for the algorithm settings menu item"""
+        """Create a popup to listen for the algorithm settings, and attach the listener."""
         self.setAlgoInfoDialog = Dialogs.AlgorithmSettingsPopUp(self.settings["algorithm"])
         self.setAlgoInfoDialog.activate.clicked.connect(self.changeAlgoInfo)
         self.setAlgoInfoDialog.exec()
 
     def changeAlgoInfo(self):
-        """ Listener for the change algorithm settinsg dialog.
-        """
-        self.settings["algorithm"] = self.setAlgoInfoDialog.getValues() 
+        """ Listener for the change algorithm settings dialog - saves to disc after obtaining new information."""
+        self.settings["algorithm"] = self.setAlgoInfoDialog.getValues()
         self._save_settings()
         self.setAlgoInfoDialog.close()
 
     def exportGIS(self):
+        """Export the current heatmap to disc as a TIF file, with associated {}.tif.points georeferencing data. 
+        
+        This is handled by the lakeator - this method is simply a wrapper and filepath selector."""
         defaultname = self.open_filename[:-4] + "_" + self.settings["algorithm"]["current"] + "_heatmap.tif"
         name, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save image & GIS Metadata", defaultname, "TIF files *.tif;; All Files *")
-        name = name + ".tif"
-        self.loc.heatmap_to_GIS(self.settings["array"]["GPS"]["coordinates"], 
-                                self.settings["array"]["GPS"]["EPSG"]["input"], 
-                                projected_EPSG=self.settings["array"]["GPS"]["EPSG"]["projected"], 
-                                target_EPSG=self.settings["array"]["GPS"]["EPSG"]["target"], 
-                                filepath=name)
-        return
+        if name:
+            name = name + ".tif"
+            self.loc.heatmap_to_GIS(self.settings["array"]["GPS"]["coordinates"],
+                                    self.settings["array"]["GPS"]["EPSG"]["input"],
+                                    projected_EPSG=self.settings["array"]["GPS"]["EPSG"]["projected"],
+                                    target_EPSG=self.settings["array"]["GPS"]["EPSG"]["target"],
+                                    filepath=name)
 
     def _load_settings(self, settings_file="./settings.txt"):
+        """Load settings from disc."""
         with open(settings_file, "r") as f:
             self.settings = json.load(f)
     
     def _save_settings(self, settings_file="./settings.txt"):
+        """Save settings to disc."""
         with open(settings_file, "w") as f:
             stngsstr = json.dumps(self.settings, sort_keys=True, indent=4)
             f.write(stngsstr)

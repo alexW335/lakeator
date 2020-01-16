@@ -1,26 +1,23 @@
+import pickle
+import zipfile
+import requests
+
+import xml.etree.ElementTree as ET
 import numpy as np
-import matplotlib.pyplot as plt
+
+import scipy.linalg as la
 import scipy.io.wavfile as wav
+
+from matplotlib import (pyplot as plt, image as mpimg)
 from scipy.interpolate import interp1d
-from numpy import linalg as la
 from sympy.utilities.iterables import multiset_combinations
 from scipy.signal import fftconvolve
-from multiprocessing import Pool
-import scipy.linalg as la
 from scipy.linalg import eigh
 from scipy import signal
 from numpy import dot, sqrt, argsort, abs
-import pickle
-import tqdm
-import zipfile
-import xml.etree.ElementTree as ET
 from motionless import DecoratedMap, LatLonMarker
-import requests
-import imageio
-import matplotlib.image as mpimg
 from PIL import Image
 from pyproj import Transformer
-from pyproj import Proj
 
 
 
@@ -160,12 +157,11 @@ class Lakeator:
         b, a = signal.butter(5, w, 'low')
         output = signal.filtfilt(b, a, self.data, axis=0)
         self.data = output
-        return
 
     def _whiten_signal_(self):
         for idx in np.arange(self.mics.shape[0]):
             t = np.fft.rfft(self.data[:,idx])
-            self.data[:, idx] = np.fft.irfft(t/np.abs(t), n=2*len(t)-1)
+            self.data[:, idx] = np.fft.irfft(t/abs(t), n=2*len(t)-1)
 
     def _create_interp_(self, mic1, mic2, mic1data, mic2data, buffer_percent=-10.0, res_scaling=5):
         """This function is to create the cubic interpolants for use in the correlation function. Uses GCC.
@@ -196,7 +192,7 @@ class Lakeator:
             corr = fft_pack.irfft(np.exp(1j*np.angle(X1 * X2star)), n=(res_scaling * n))
 
         elif self._GCC_proc_== "p-CSP" or self._GCC_proc_== "p-PHAT":
-            proc = 1.0/(np.abs(X1*X2star)**0.73)
+            proc = 1.0/(abs(X1*X2star)**0.73)
             corr = fft_pack.irfft(X1 * X2star * proc, n=(res_scaling * n))
 
         elif self._GCC_proc_== "CC":
@@ -212,7 +208,7 @@ class Lakeator:
             corr = fft_pack.irfft(X1 * X2star * proc, n=(res_scaling * n))
 
         elif self._GCC_proc_== "HB":
-            proc = np.abs(X1*np.conj(X2))/(X1*np.conj(X1)*X2*np.conj(X2))
+            proc = abs(X1*np.conj(X2))/(X1*np.conj(X1)*X2*np.conj(X2))
             corr = fft_pack.irfft(X1 * X2star * proc, n=(res_scaling * n))
         
         elif self._GCC_proc_[:3].lower() == 'bit':
@@ -382,7 +378,6 @@ class Lakeator:
             test.append([xp, yp])
             w.write("{},{},{},{},1,0,0,0".format(xp, yp, self._hm_domain_.shape[0]-1, -self._hm_domain_.shape[1]+1))
 
-        return
 
     def _polynom_steervec(self, samples, max_tau=1500):
         """Takes a vector of M desired delays and a maximum lag parameter max_tau, and returns the (M, 1, 2*max_tau+1)
@@ -651,10 +646,10 @@ class Lakeator:
         print("calculated Rxx")
 
         # focusing_freq_index is the index along dft and Tauto to find f_0
-        focusing_freq_index = np.argmin(np.abs(pos - focusing_freq)) + LHSl
+        focusing_freq_index = np.argmin(abs(pos - focusing_freq)) + LHSl
 
         eig_f0, v_f0 = np.linalg.eigh(Rxx[:,:,focusing_freq_index])
-        Uf0 = v_f0[:, np.argsort(np.abs(eig_f0))[::-1]]
+        Uf0 = v_f0[:, argsort(abs(eig_f0))[::-1]]
         # Calculate Tautos
         # Tauto will go in here
         Tauto = np.zeros((self.mics.shape[0], self.mics.shape[0], len(pos)) , dtype="complex128")
@@ -662,8 +657,8 @@ class Lakeator:
         Ufi = np.zeros((self.mics.shape[0], self.mics.shape[0], self.data.shape[0]//2+1) , dtype="complex128")
         for indx, fi in enumerate(pos):
             eig_fi, v_fi = np.linalg.eigh(Rxx[:, :, indx+LHSl])
-            Ufi[:,:,indx] = v_fi[:, np.argsort(np.abs(eig_fi))[::-1]]
-            Tauto[:,:,indx] = dot(Uf0, np.conj(Ufi[:,:,indx].T))/np.sqrt(pos.shape[0])
+            Ufi[:,:,indx] = v_fi[:, argsort(abs(eig_fi))[::-1]]
+            Tauto[:,:,indx] = dot(Uf0, np.conj(Ufi[:,:,indx].T))/sqrt(pos.shape[0])
 
         # Calculate Ryy
         # Ryy will go in here
@@ -807,7 +802,6 @@ class Lakeator:
 
         
         plt.show()
-        return
 
 def UCA(n, r, centerpoint=True, show=False):
     """A helper function to easily set up UCAs (uniform circular arrays).
@@ -865,7 +859,7 @@ def _r(phi, r_eq=6378137.0, r_pl=6356752.3):
     r_pl is the radius of Earth at the poles. Distances are in meters.
     Calculated using https://en.wikipedia.org/wiki/Earth_radius#Geocentric_radius
     """
-    return np.sqrt(((r_eq**2*np.cos(phi))**2+(r_pl**2*np.sin(phi))**2)/((r_eq*np.cos(phi))**2+(r_pl*np.sin(phi))**2))
+    return sqrt(((r_eq**2*np.cos(phi))**2+(r_pl**2*np.sin(phi))**2)/((r_eq*np.cos(phi))**2+(r_pl*np.sin(phi))**2))
 
 def _stereo_proj(points, array_coords):
     """Given a set of points (longitude_i, latitude_i, height_i) on the globe,

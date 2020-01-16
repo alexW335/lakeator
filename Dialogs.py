@@ -1,13 +1,13 @@
-from matplotlib.backends.qt_compat import QtCore, QtWidgets, QtGui
-from numpy import array
+from matplotlib.backends.qt_compat import QtWidgets, QtGui
 
 class GPSPopUp(QtWidgets.QDialog):
+    """"""
     # Class for the set GPS information dialog box
     def __init__(self, coords=(0., 0.), EPSG=4326, pEPSG=2193, tEPSG=3857, parent=None):
+        """"""
         QtWidgets.QDialog.__init__(self, parent)
         self.setWindowTitle('Set GPS Array Information')
         self.setWindowIcon(QtGui.QIcon('kiwi.png'))
-        # self.setWindowFlags((self.windowFlags() ^ QtCore.Qt.WindowContextHelpButtonHint) | QtCore.Qt.WindowStaysOnTopHint)
         self.setMinimumWidth(400)
 
         self.coordsLabel = QtWidgets.QLabel("Coordinates")
@@ -42,8 +42,9 @@ class GPSPopUp(QtWidgets.QDialog):
 
         # Now put everything into the frame
         self.setLayout(Box)
-    
+
     def getValues(self):
+        """"""
         instr = self.name1.text().strip().split(',')
         assert len(instr) == 2
         lat, long = float(instr[0]), float(instr[1])
@@ -52,14 +53,15 @@ class GPSPopUp(QtWidgets.QDialog):
         tEPSG = int(self.name4.text())
         return [lat, long, EPSG, pEPSG, tEPSG]
 
-    
+
 class MicPositionPopUp(QtWidgets.QDialog):
+    """"""
     # Class for the set GPS information dialog box
-    def __init__(self, cur_locs=array([[0,0],[0,1],[1,0],[1,1]]), parent=None):
+    def __init__(self, cur_locs=[[0, 0], [0, 1], [1, 0], [1, 1]], parent=None):
+        """"""
         QtWidgets.QDialog.__init__(self, parent)
         self.setWindowTitle('Set Array Configuration Information')
         self.setWindowIcon(QtGui.QIcon('kiwi.png'))
-        # self.setWindowFlags((self.windowFlags() ^ QtCore.Qt.WindowContextHelpButtonHint) | QtCore.Qt.WindowStaysOnTopHint)
         self.setMinimumWidth(400)
 
         self.coordsLabel = QtWidgets.QLabel("Coordinates")
@@ -75,30 +77,32 @@ class MicPositionPopUp(QtWidgets.QDialog):
 
         # Now put everything into the frame
         self.setLayout(Box)
-    
+
     def arrayToStr(self, arr):
+        """"""
         strout = ""
         for row in range(len(arr)):
             strout += "{}, {}\n".format(arr[row][0], arr[row][1])
         return strout
-    
+
     def getValues(self):
+        """"""
         tmp = []
         print(r"{}".format(self.name1.toPlainText()))
         instr = self.name1.toPlainText().strip().split('\n')
         for ind in instr:
             a = ind.split(',')
             tmp.append([float(a[0].strip()), float(a[1].strip())])
-        # tmp = array(tmp)
         return tmp
 
 class HeatmapBoundsPopUp(QtWidgets.QDialog):
+    """"""
     # Class for the set GPS information dialog box
     def __init__(self, l, r, u, d, parent=None):
+        """"""
         QtWidgets.QDialog.__init__(self, parent)
         self.setWindowTitle('Set Heatmap Bounds')
         self.setWindowIcon(QtGui.QIcon('kiwi.png'))
-        # self.setWindowFlags((self.windowFlags() ^ QtCore.Qt.WindowContextHelpButtonHint) | QtCore.Qt.WindowStaysOnTopHint)
         self.setMinimumWidth(400)
 
         self.header = QtWidgets.QLabel("All distances are relative to the array center.")
@@ -145,19 +149,23 @@ class HeatmapBoundsPopUp(QtWidgets.QDialog):
         Box.addLayout(right)
         Box.addLayout(up)
         Box.addLayout(down)
-        
+
         Box.addWidget(self.activate)
 
         # Now put everything into the frame
         self.setLayout(Box)
-    
+
     def getValues(self):
-        return -float(self.lledit.text()), float(self.rledit.text()), float(self.uledit.text()), -float(self.dledit.text())
+        """"""
+        return -float(self.lledit.text()), float(self.rledit.text()), \
+        float(self.uledit.text()), -float(self.dledit.text())
 
 
 class AlgorithmSettingsPopUp(QtWidgets.QDialog):
+    """"""
     # Class for the set GPS information dialog box
     def __init__(self, algSettingsDict, parent=None):
+        """"""
         QtWidgets.QDialog.__init__(self, parent)
         self.setWindowTitle('Change Algorithm-Specific Settings')
         self.setWindowIcon(QtGui.QIcon('kiwi.png'))
@@ -192,7 +200,7 @@ class AlgorithmSettingsPopUp(QtWidgets.QDialog):
         self.GCC_l = QtWidgets.QLabel("Processor:")
         self.GCC = QtWidgets.QLineEdit(self)
         self.GCC.setText(algSettingsDict["GCC"]["processor"])
-        
+
         # MUSIC
         self.MUSICTitle = QtWidgets.QLabel("MUSIC:")
         self.MUSICTitle.setFont(fnt)
@@ -204,7 +212,7 @@ class AlgorithmSettingsPopUp(QtWidgets.QDialog):
         self.activate = QtWidgets.QPushButton("Set")
 
         Box = QtWidgets.QVBoxLayout()
-        
+
         Box.addWidget(self.afTitle)
         f_min = QtWidgets.QHBoxLayout()
         f_min.addWidget(self.fmin_l)
@@ -221,7 +229,8 @@ class AlgorithmSettingsPopUp(QtWidgets.QDialog):
         f_0.addWidget(self.f0)
         Box.addLayout(f_0)
 
-        Box.addSpacerItem(QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding))
+        Box.addSpacerItem(QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum,
+                                                QtWidgets.QSizePolicy.Expanding))
 
         Box.addWidget(self.GCCTitle)
         procBox = QtWidgets.QHBoxLayout()
@@ -229,7 +238,8 @@ class AlgorithmSettingsPopUp(QtWidgets.QDialog):
         procBox.addWidget(self.GCC)
         Box.addLayout(procBox)
 
-        Box.addSpacerItem(QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding))
+        Box.addSpacerItem(QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum,
+                                                QtWidgets.QSizePolicy.Expanding))
 
         Box.addWidget(self.MUSICTitle)
         MUSICBox = QtWidgets.QHBoxLayout()
@@ -237,31 +247,25 @@ class AlgorithmSettingsPopUp(QtWidgets.QDialog):
         MUSICBox.addWidget(self.MUSIC)
         Box.addLayout(MUSICBox)
 
-        # Box.QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding)
-
-        # down = QtWidgets.QHBoxLayout()
-        # down.addWidget(self.downLabel)
-        # down.addWidget(self.dledit)
-        
         Box.addWidget(self.activate)
 
         # Now put everything into the frame
         self.setLayout(Box)
-    
+
     def getValues(self):
-        # -float(self.lledit.text()), float(self.rledit.text()), float(self.uledit.text()), -float(self.dledit.text())
+        """"""
         retDict = {
-        "AF-MUSIC": {
-            "f_0": float(self.f0.text()),
-            "f_max": float(self.fmax.text()),
-            "f_min": float(self.fmin.text())
-        },
-        "GCC": {
-            "processor": self.GCC.text()
-        },
-        "MUSIC": {
-            "freq": float(self.MUSIC.text())
-        },
-        "current": self.cur
+            "AF-MUSIC": {
+                "f_0": float(self.f0.text()),
+                "f_max": float(self.fmax.text()),
+                "f_min": float(self.fmin.text())
+            },
+            "GCC": {
+                "processor": self.GCC.text()
+            },
+            "MUSIC": {
+                "freq": float(self.MUSIC.text())
+            },
+            "current": self.cur
         }
         return retDict
