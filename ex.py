@@ -67,13 +67,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         setDomain = QtWidgets.QAction("&Set Heatmap Domain", self)
         setDomain.setShortcut("Ctrl+D")
         setDomain.setStatusTip("Configure distances left/right up/down at which to generate the heatmap.")
-        setDomain.triggered.connect(self.file_open)
+        setDomain.triggered.connect(self.getBoundsInfo)
 
-        changeMethod = QtWidgets.QAction("&Change/Configure Method", self)
-        changeMethod.setShortcut("Ctrl+M")
-        changeMethod.setStatusTip("Switch between and configure the AF-MUSIC and GCC algorithms.")
-        changeMethod.triggered.connect(self.file_open)
-        changeMethod.setDisabled(True)
+        # changeMethod = QtWidgets.QAction("&Change/Configure Method", self)
+        # changeMethod.setShortcut("Ctrl+M")
+        # changeMethod.setStatusTip("Switch between and configure the AF-MUSIC and GCC algorithms.")
+        # changeMethod.triggered.connect(self.file_open)
+        # changeMethod.setDisabled(True)
 
         self.refreshHeatmap = QtWidgets.QAction("&Calculate", self)
         self.refreshHeatmap.setShortcut("Ctrl+H")
@@ -81,9 +81,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.refreshHeatmap.triggered.connect(self.generate_heatmap)
         self.refreshHeatmap.setDisabled(True)
 
+        self.refreshView = QtWidgets.QAction("&Recalculate on View", self)
+        self.refreshView.setShortcut("Ctrl+R")
+        self.refreshView.setStatusTip("Recalculate heatmap at current zoom level.")
+        self.refreshView.triggered.connect(self.recalculateOnView)
+        self.refreshView.setDisabled(True)
+
         heatmapMenu = mainMenu.addMenu("&Heatmap")
         heatmapMenu.addAction(setDomain)
-        heatmapMenu.addAction(changeMethod)
+        # heatmapMenu.addAction(changeMethod)
 
 
         # Initialise canvas
@@ -128,26 +134,29 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         heatmapMenu.addSeparator()
         heatmapMenu.addAction(self.refreshHeatmap)
+        heatmapMenu.addAction(self.refreshView)
 
+
+        algoMenu = mainMenu.addMenu("Algorithm")
+        self.algChoice = algoMenu.addMenu("&Change Algorithm")
+        algGroup = QtWidgets.QActionGroup(self)
+        for alg in sorted(["GCC", "MUSIC", "AF-MUSIC"], key=str.casefold):
+            cm = self.algChoice.addAction(alg)
+            cm.setCheckable(True)
+            if alg==self.settings["algorithm"]["current"]:
+                cm.setChecked(True)
+            receiver = lambda checked, al=alg: self.setAlg(al)
+            cm.triggered.connect(receiver)
+            # cm.triggered.connect(self.static_canvas.draw)
+            colGroup.addAction(cm)
+
+        self.params = QtWidgets.QAction("&Algorithm Settings", self)
+        self.params.setStatusTip("Alter algorithm-specific settings.")
+        self.params.triggered.connect(self.getAlgoInfo)
+        algoMenu.addAction(self.params)
+        
         # Display a "ready" message
         self.statusBar().showMessage('Ready')
-
-        # Set some lakeator defaults
-        # Set default heatmap extent
-        self._hm_xrange = [-50, 50]
-        self._hm_yrange = [-50, 50]
-
-        # Keep track of the current view window
-        # ALTER THIS SO THAT IT REEVALUATES ON EVERY ZOOM SO THAT RESOLUTION IS NEVER LOST. CHANGE RECALCULATE TO ONLY 
-        # RESCALE COLOURBAR IF NOT ON ORIGINAL ZOOM LEVEL. THEN OVERRIDE THE HOME BUTTON TO TAKE BACK TO THE ORIGINAL ZOOM 
-        # LEVEL
-        self.last_zoomed = [self._hm_xrange[:], self._hm_yrange[:]]
-
-        # Set the default EPSG codes
-        self._EPSG = 4326         # WGS84 (lat/long)   https://epsg.io/4326
-        self._projected_EPSG=2193 # NZTM2000 projected https://epsg.io/2193
-        self._target_EPSG=3857    # Web Mercator       https://epsg.io/3857
-        self._GPS_coords = (172.35855528, -43.81248292)
 
         # Boolean to keep track of whether we have GPS information for the array, and an image
         self._has_GPS = False
@@ -157,11 +166,29 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.open_filename = ""
         
         self.loc = lakeator.Lakeator(self.settings["array"]["mic_locations"])
-
+    
+    def setAlg(self, alg):
+        self.settings["algorithm"]["current"] = alg
+        self._save_settings()
+    
     def ondraw(self, event):
         """Return the new axis limits when the screen is resized"""
+        if self._has_heatmap and (self.settings["heatmap"]["xlim"][0] != self._static_ax.get_xlim()[0] or \
+            self.settings["heatmap"]["xlim"][1] != self._static_ax.get_xlim()[1] or \
+            self.settings["heatmap"]["ylim"][0] != self._static_ax.get_ylim()[0] or \
+            self.settings["heatmap"]["ylim"][1] != self._static_ax.get_ylim()[1]):
+            # print("zoom changed: ", self.settings["heatmap"]["xlim"][0], self._static_ax.get_xlim()[0]) 
+            self.refreshView.setDisabled(False)
         self.last_zoomed = [self._static_ax.get_xlim(), self._static_ax.get_ylim()]
         return
+    
+    def recalculateOnView(self):
+        if hasattr(self, "last_zoomed"):
+            self.settings["heatmap"]["xlim"] = self.last_zoomed[0]
+            self.settings["heatmap"]["ylim"] = self.last_zoomed[1]
+            self._save_settings()
+            self.generate_heatmap()
+
 
     def invert_heatmap(self):
         """Adds or removes _r to the current colourmap before setting it and redrawing the canvas"""
@@ -193,11 +220,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         # Show a loading message while the user waits
         self.statusBar().showMessage('Calculating heatmap...')
-        dom = self.loc.estimate_DOA_heatmap(self.settings["algorithm"]["current"], xrange=self.last_zoomed[0], yrange=self.last_zoomed[1], no_fig=True)
+        # dom = self.loc.estimate_DOA_heatmap(self.settings["algorithm"]["current"], xrange=self.last_zoomed[0], yrange=self.last_zoomed[1], no_fig=True)
+        
+        dom = self.loc.estimate_DOA_heatmap(self.settings["algorithm"]["current"], xrange=self.settings["heatmap"]["xlim"], 
+                                            yrange=self.settings["heatmap"]["ylim"], no_fig=True, freq=self.settings["algorithm"]["MUSIC"]["freq"], 
+                                            AF_freqs=(self.settings["algorithm"]["AF-MUSIC"]["f_min"], self.settings["algorithm"]["AF-MUSIC"]["f_max"]), 
+                                            f_0=self.settings["algorithm"]["AF-MUSIC"]["f_0"])
 
         # Show the image and set axis labels & title      
         self.img = self._static_ax.imshow(dom, cmap=self.settings["heatmap"]["cmap"], interpolation='none', origin='lower',
-                   extent=[self.last_zoomed[0][0], self.last_zoomed[0][1], self.last_zoomed[1][0], self.last_zoomed[1][1]])
+                   extent=[self.settings["heatmap"]["xlim"][0], self.settings["heatmap"]["xlim"][1], self.settings["heatmap"]["ylim"][0], self.settings["heatmap"]["ylim"][1]])
         self._static_ax.set_xlabel("Horiz. Dist. from Center of Array [m]")
         self._static_ax.set_ylabel("Vert. Dist. from Center of Array [m]")
         self._static_ax.set_title("{}-based Source Location Estimate".format(self.settings["algorithm"]["current"]))
@@ -269,11 +301,41 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         """
         miclocs = self.setMicsInfoDialog.getValues()
         self.settings["array"]["mic_locations"] = miclocs
-        # print(miclocs, type(miclocs))
-        # raise EnvironmentError
         self._save_settings()
         self.loc = lakeator.Lakeator(self.settings["array"]["mic_locations"])
         self.setMicsInfoDialog.close()
+
+    def getBoundsInfo(self):
+        """Listener for the change array info menu item"""
+        l, r = self.settings["heatmap"]["xlim"]
+        d, u = self.settings["heatmap"]["ylim"]
+        self.setBoundsInfoDialog = Dialogs.HeatmapBoundsPopUp(l, r, u, d)
+        self.setBoundsInfoDialog.activate.clicked.connect(self.changeBoundsInfo)
+        self.setBoundsInfoDialog.exec()
+
+    def changeBoundsInfo(self):
+        """ Listener change array info dialog.
+        """
+        l_new, r_new, u_new, d_new = self.setBoundsInfoDialog.getValues()
+        self.settings["heatmap"]["xlim"] = [l_new, r_new]
+        self.settings["heatmap"]["ylim"] = [d_new, u_new]
+        self._save_settings()
+        self.generate_heatmap()
+        # self.loc = lakeator.Lakeator(self.settings["array"]["mic_locations"])
+        self.setBoundsInfoDialog.close()
+
+    def getAlgoInfo(self):
+        """Listener for the algorithm settings menu item"""
+        self.setAlgoInfoDialog = Dialogs.AlgorithmSettingsPopUp(self.settings["algorithm"])
+        self.setAlgoInfoDialog.activate.clicked.connect(self.changeAlgoInfo)
+        self.setAlgoInfoDialog.exec()
+
+    def changeAlgoInfo(self):
+        """ Listener for the change algorithm settinsg dialog.
+        """
+        self.settings["algorithm"] = self.setAlgoInfoDialog.getValues() 
+        self._save_settings()
+        self.setAlgoInfoDialog.close()
 
     def exportGIS(self):
         defaultname = self.open_filename[:-4] + "_" + self.settings["algorithm"]["current"] + "_heatmap.tif"

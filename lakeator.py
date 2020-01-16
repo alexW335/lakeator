@@ -262,7 +262,7 @@ class Lakeator:
         return np.sum(ts, axis=0)
 
     def estimate_DOA_heatmap(self, method, xrange=(-50, 50), yrange=(-50, 50), xstep=False, ystep=False, colormap="bone", shw=True,
-                        block_run=True, no_fig=False, freq=False, signals=1, AF_freqs=(False, False), array_GPS=False, save_GIS=False):
+                        block_run=True, no_fig=False, freq=False, signals=1, AF_freqs=(False, False), f_0=-1, array_GPS=False, save_GIS=False):
         """Displays a heatmap for visual inspection of correlation-based location estimation.
 
         Generates a grid of provided dimension/resolution, and evaluates the selected DOA-estimation at each point on the grid.
@@ -302,7 +302,7 @@ class Lakeator:
         
         if method.upper() == "AF-MUSIC" or method.upper() == "AF_MUSIC":
             self.dataFFT = fft_pack.rfft(self.data, axis=0, n=2*self.data.shape[0])
-            self._hm_domain_ = self.AF_MUSIC_subset(xdom, ydom, freqs=AF_freqs)
+            self._hm_domain_ = self.AF_MUSIC_subset(xdom, ydom, freqs=AF_freqs, focusing_freq=f_0)
         elif method.upper() == "MUSIC":
             assert freq, "Frequency must be provided for MUSIC calculation"
             pos = fft_pack.rfftfreq(2*self.data.shape[0])*self.sample_rate
