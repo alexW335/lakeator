@@ -10,7 +10,7 @@ import scipy.io.wavfile as wav
 
 from matplotlib import (pyplot as plt, image as mpimg)
 from scipy.interpolate import interp1d
-from sympy.utilities.iterables import multiset_combinations
+from itertools import combinations
 from scipy.signal import fftconvolve
 from scipy.linalg import eigh
 from scipy import signal
@@ -76,7 +76,7 @@ class Lakeator:
         self.epsg=2193
         self.mics = np.array(mic_locations)
         self._mic_pairs_ = np.array(
-            [p for p in multiset_combinations(np.arange(0, self.mics.shape[0], dtype="int16"), n=2)])
+            [p for p in combinations(np.arange(0, self.mics.shape[0], dtype="int16"), 2)])
         self.maxdist = np.max(np.linalg.norm(self.mics, axis=1))
         self.spatial_nyquist_freq = self.sound_speed/(2*self.maxdist)
 
