@@ -24,7 +24,7 @@ The lakeator is dependent on the following packages:
 * [pyproj](http://python.org/pypi/pyproj)
 * (optionally) [PYFFTW](https://pypi.org/project/pyFFTW/)
 
-and the GUI contained in ex.py *should* only require matplotlib and the other files contained within this repository.
+and the GUI contained in `gui.py` *should* only require matplotlib and the other files contained within this repository.
 
 
 # References
