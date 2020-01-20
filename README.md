@@ -1,7 +1,7 @@
 # lakeator
 A python package for Acoustic Source Localisation, with GUI and QGIS integration. 
 
-Clone/refinement of the Locator package (github.com/alexW335/Locator) produced during my MSc.
+Clone/refinement of the Locator package (github.com/alexW335/Locator) produced during my MSc; thesis on Acoustic Source Localisation available [here](https://mro.massey.ac.nz/handle/10179/15008).
 
 ## What is it?
 The lakeator is a python class designed for use in acoustic source localisation. It contains functionality for three different algorithms, namely: the Generalised Cross-Correlation (GCC) algorithm [1], complete with the identity, PHAT, p-PHAT, SCOT, RIR, and HB processors [2]; the Multiple Signal Classification (MUSIC) algorithm for localisation of narrowband sources [3]; and the auto-focusing MUSIC (AF-MUSIC) algorithm for localisation of broadband signals [4]. 
