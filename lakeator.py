@@ -83,7 +83,7 @@ class Lakeator:
         if file_path:
             self.load(file_path)
 
-    def load(self, file_path, normalise: bool=True, GCC_processor="p-PHAT", do_FFTs=True, filter_f=(False, False)):
+    def load(self, file_path, normalise: bool=True, GCC_processor="p-PHAT", do_FFTs=True, filter_f=(False, False), rho=0.73):
         """Loads the data from the .wav file, and computes the inter-channel correlations.
 
         Correlations are computed, interpolated, and then stored within the lakeator
@@ -93,10 +93,13 @@ class Lakeator:
         Arguments:
             file_path (str): The file path of the WAV file to be read.
             normalise (bool): Normalise the data? This is a good idea, hence the truthy default state.
-            GCC_processor (str): Which GCC processor to use. Options are: CC, PHAT, Scot, & RIR. See Table 1 of Knapp, C. et. al. (1976) "The Generalised Correlation Method for Estimation of Time Delay"
+            GCC_processor (str): Which GCC pro
+            cessor to use. Options are: CC, PHAT, Scot, & RIR. See Table 1 of Knapp, C. et. al. (1976) "The Generalised Correlation Method for Estimation of Time Delay"
             do_FFTs (bool): Calculate the cross-correlations? Worth turning off to save time if only MUSIC-based algorithms are to be used.
             filter_f (float, float): Tuple of frequencies (in Hertz) between which to apply a bandpass filter. 
         """
+
+        self.rho = rho
         global wf, pftw
         self._GCC_proc_ = GCC_processor
         if isinstance(file_path, str):
@@ -192,7 +195,7 @@ class Lakeator:
             corr = fft_pack.irfft(np.exp(1j*np.angle(X1 * X2star)), n=(res_scaling * n))
 
         elif self._GCC_proc_== "p-CSP" or self._GCC_proc_== "p-PHAT":
-            proc = 1.0/(abs(X1*X2star)**0.73)
+            proc = 1.0/(abs(X1*X2star)**self.rho)
             corr = fft_pack.irfft(X1 * X2star * proc, n=(res_scaling * n))
 
         elif self._GCC_proc_== "CC":

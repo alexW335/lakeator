@@ -245,7 +245,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.statusBar().showMessage('Loading...')
         name, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load .wav file", "./", "Audio *.wav")
         if name:
-            self.loc.load(name)
+            self.loc.load(name, rho=self.settings["algorithm"]["GCC"]["rho"])
             self.open_filename = name
             self.refreshHeatmap.setDisabled(False)
             self.statusBar().showMessage('Ready.')
@@ -317,7 +317,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         """Create a popup to listen for the algorithm settings, and attach the listener."""
         self.setAlgoInfoDialog = Dialogs.AlgorithmSettingsPopUp(self.settings["algorithm"])
         self.setAlgoInfoDialog.activate.clicked.connect(self.changeAlgoInfo)
+        self.setAlgoInfoDialog.cb.currentIndexChanged.connect(self.procChange)
         self.setAlgoInfoDialog.exec()
+
+    def procChange(self):
+        self.settings["algorithm"]["GCC"]["processor"] = self.setAlgoInfoDialog.cb.currentText()
+        self._save_settings()
 
     def changeAlgoInfo(self):
         """ Listener for the change algorithm settings dialog - saves to disc after obtaining new information."""

@@ -6,7 +6,8 @@
             "f_min": 100.0
         },
         "GCC": {
-            "processor": "p-PHAT"
+            "processor": "p-PHAT",
+            "rho": 0.73
         },
         "MUSIC": {
             "freq": 1000.0

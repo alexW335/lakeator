@@ -1,4 +1,5 @@
-from matplotlib.backends.qt_compat import QtWidgets, QtGui
+from matplotlib.backends.qt_compat import QtWidgets, QtGui, QtCore
+# from PyQt5.QtCore import Horizontal
 
 class GPSPopUp(QtWidgets.QDialog):
     """"""
@@ -180,11 +181,11 @@ class AlgorithmSettingsPopUp(QtWidgets.QDialog):
         self.afTitle = QtWidgets.QLabel("AF-MUSIC:")
         self.afTitle.setFont(fnt)
 
-        self.fmax_l = QtWidgets.QLabel("f_max (Hz):")
+        self.fmax_l = QtWidgets.QLabel(u"\u0192_max (Hz):")
         self.fmax = QtWidgets.QLineEdit(self)
         self.fmax.setText(str(algSettingsDict["AF-MUSIC"]["f_max"]))
 
-        self.fmin_l = QtWidgets.QLabel("f_min (Hz):")
+        self.fmin_l = QtWidgets.QLabel(u"\u0192_min (Hz):")
         self.fmin = QtWidgets.QLineEdit(self)
         self.fmin.setText(str(algSettingsDict["AF-MUSIC"]["f_min"]))
 
@@ -198,8 +199,23 @@ class AlgorithmSettingsPopUp(QtWidgets.QDialog):
 
         # Available processors: PHAT, p-PHAT, CC, RIR, SCOT, HB
         self.GCC_l = QtWidgets.QLabel("Processor:")
-        self.GCC = QtWidgets.QLineEdit(self)
-        self.GCC.setText(algSettingsDict["GCC"]["processor"])
+        # self.GCC.setText(algSettingsDict["GCC"]["processor"])
+
+        self.possible_processors = ["PHAT", "p-PHAT", "CC", "RIR", "SCOT", "HB"]
+        self.cb = QtWidgets.QComboBox()
+        self.cb.addItems(self.possible_processors)
+        self.cb.setCurrentIndex(self.possible_processors.index(algSettingsDict["GCC"]["processor"]))
+
+
+        self.def_rho = algSettingsDict["GCC"]["rho"]
+        self.sl_l = QtWidgets.QLabel(u"0 \u2265 \u03C1={} \u2265 1:".format(self.def_rho))
+        self.sl = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.sl.setMinimum(0)
+        self.sl.setMaximum(100)
+        self.sl.setTickInterval(10)
+        self.sl.setTickPosition(QtWidgets.QSlider.TicksBelow)
+        self.sl.setValue(int(self.def_rho*100))
+        self.sl.valueChanged.connect(self.changeRho)
 
         # MUSIC
         self.MUSICTitle = QtWidgets.QLabel("MUSIC:")
@@ -235,8 +251,13 @@ class AlgorithmSettingsPopUp(QtWidgets.QDialog):
         Box.addWidget(self.GCCTitle)
         procBox = QtWidgets.QHBoxLayout()
         procBox.addWidget(self.GCC_l)
-        procBox.addWidget(self.GCC)
+        procBox.addWidget(self.cb)
         Box.addLayout(procBox)
+
+        rhoBox = QtWidgets.QHBoxLayout()
+        rhoBox.addWidget(self.sl_l)
+        rhoBox.addWidget(self.sl)
+        Box.addLayout(rhoBox)
 
         Box.addSpacerItem(QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum,
                                                 QtWidgets.QSizePolicy.Expanding))
@@ -252,6 +273,9 @@ class AlgorithmSettingsPopUp(QtWidgets.QDialog):
         # Now put everything into the frame
         self.setLayout(Box)
 
+    def changeRho(self):
+        self.sl_l.setText(u"0 \u2265 \u03C1={} \u2265 1:".format(self.sl.value()/100.0))
+
     def getValues(self):
         """"""
         retDict = {
@@ -261,7 +285,8 @@ class AlgorithmSettingsPopUp(QtWidgets.QDialog):
                 "f_min": float(self.fmin.text())
             },
             "GCC": {
-                "processor": self.GCC.text()
+                "processor": self.cb.currentText(),
+                "rho": self.sl.value()/100.0
             },
             "MUSIC": {
                 "freq": float(self.MUSIC.text())
