@@ -7,7 +7,7 @@ Clone/refinement of the Locator package (github.com/alexW335/Locator) produced d
 The lakeator is a python class designed for use in acoustic source localisation. It contains functionality for three different algorithms, namely: the Generalised Cross-Correlation (GCC) algorithm [1], complete with the identity, PHAT, p-PHAT, SCOT, RIR, and HB processors [2]; the Multiple Signal Classification (MUSIC) algorithm for localisation of narrowband sources [3]; and the auto-focusing MUSIC (AF-MUSIC) algorithm for localisation of broadband signals [4]. 
 
 ## How do you use it?
-The lakeator class can either be used inside a python script (see the main.py file, for example) or via the GUI with `python ex.py`. The GUI is designed to not require any programming knowledge to be able to use it. 
+The lakeator class can either be used inside a python script (see the main.py file, for example) or via the GUI with `python gui.py`. The GUI is designed to not require any programming knowledge to be able to use it. 
 
 ## What do you need to run it?
 The lakeator is dependent on the following packages:
