@@ -291,11 +291,19 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def changeArrayInfo(self):
         """Listener for the change array info dialog - writes the information to disc and re-initialises the locator."""
         # TODO: reload current file, or disable heatmap again after this call
-        miclocs = self.setMicsInfoDialog.getValues()
-        self.settings["array"]["mic_locations"] = miclocs
-        self._save_settings()
-        self.loc = lakeator.Lakeator(self.settings["array"]["mic_locations"]) 
-        self.setMicsInfoDialog.close()
+        try:
+            miclocs = self.setMicsInfoDialog.getValues()
+            self.settings["array"]["mic_locations"] = miclocs
+            self._save_settings()
+            self.loc = lakeator.Lakeator(self.settings["array"]["mic_locations"]) 
+            self.setMicsInfoDialog.close()
+        except ValueError:
+            msg = QtWidgets.QMessageBox()
+            msg.setIcon(QtWidgets.QMessageBox.Critical)
+            msg.setText("Value Error\nPlease enter microphone coordinates in meters as x,y pairs, one per line; e.g.\n0.0, 0.0\n0.1, 0.0\n0.0, -0.1\n-0.1, 0.0\n0.0, 0.1")
+            msg.setWindowTitle("Error")
+            msg.setMinimumWidth(200)
+            msg.exec_()
 
     def getBoundsInfo(self):
         """Create a popup to listen for the change heatmap bounds info, and connect the listener."""
