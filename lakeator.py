@@ -612,7 +612,7 @@ class Lakeator:
                     focusing_freq = self.sample_rate/4.0
         # print(focusing_freq, freqs)
         # Split the data up into "chunks" sections
-        indices = [int(x) for x in np.linspace(0, self.data.shape[0], num=chunks+1, endpoint=True)]
+        indices = [int(x) for x in np.linspace(0, self.data.shape[0], num=int(chunks+1), endpoint=True)]
 
         # The frequencies for Tauto and DFT. They all have the same length so this is fine to do outside the loop
         pos = fft_pack.rfftfreq(self.data.shape[0]) * self.sample_rate
@@ -667,8 +667,8 @@ class Lakeator:
         # Ryy will go in here
         Ryy = np.zeros((self.mics.shape[0], self.mics.shape[0], len(pos)), dtype="complex128")
         
-        chunks=1.0
-        indices = [int(x) for x in np.linspace(0, self.data.shape[0], num=chunks + 1, endpoint=True)]
+        # chunks=1.0
+        indices = [int(x) for x in np.linspace(0, self.data.shape[0], num=int(chunks + 1), endpoint=True)]
         for mark in np.arange(len(indices) - 1):
             dcr = self.data[indices[mark]:indices[mark + 1], :]
             for chnl in np.arange(dcr.shape[1]):
