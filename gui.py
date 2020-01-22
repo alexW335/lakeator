@@ -8,6 +8,7 @@ from matplotlib.pyplot import colormaps
 
 import lakeator
 import Dialogs
+from Dialogs import NegativeDistanceError
 
 
 
@@ -306,12 +307,28 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def changeBoundsInfo(self):
         """ Listener change heatmap bounds info dialog - save the information to disc and regenerate the heatmap on the new zoom area."""
-        l_new, r_new, u_new, d_new = self.setBoundsInfoDialog.getValues()
-        self.settings["heatmap"]["xlim"] = [l_new, r_new]
-        self.settings["heatmap"]["ylim"] = [d_new, u_new]
-        self._save_settings()
-        self.generate_heatmap()
-        self.setBoundsInfoDialog.close()
+        try:
+            l_new, r_new, u_new, d_new = self.setBoundsInfoDialog.getValues()
+            self.settings["heatmap"]["xlim"] = [l_new, r_new]
+            self.settings["heatmap"]["ylim"] = [d_new, u_new]
+            self._save_settings()
+            if self.open_filename:
+                self.generate_heatmap()
+            self.setBoundsInfoDialog.close()
+        except ValueError:
+            msg = QtWidgets.QMessageBox()
+            msg.setIcon(QtWidgets.QMessageBox.Critical)
+            msg.setText("Value Error\nPlease ensure that all distances are strictly numeric, e.g. enter '5' or '5.0', rather than '5m' or 'five'.")
+            msg.setWindowTitle("Error")
+            msg.setMinimumWidth(200)
+            msg.exec_()
+        except NegativeDistanceError:
+            msg = QtWidgets.QMessageBox()
+            msg.setIcon(QtWidgets.QMessageBox.Critical)
+            msg.setText("Value Error\nPlease ensure that Left/West < Right/East, \nand Up/North < Down/South.")
+            msg.setWindowTitle("Error")
+            msg.setMinimumWidth(200)
+            msg.exec_()
 
     def getAlgoInfo(self):
         """Create a popup to listen for the algorithm settings, and attach the listener."""
@@ -326,9 +343,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def changeAlgoInfo(self):
         """ Listener for the change algorithm settings dialog - saves to disc after obtaining new information."""
-        self.settings["algorithm"] = self.setAlgoInfoDialog.getValues()
-        self._save_settings()
-        self.setAlgoInfoDialog.close()
+        try:
+            self.settings["algorithm"] = self.setAlgoInfoDialog.getValues()
+            self._save_settings()
+            self.setAlgoInfoDialog.close()
+        except ValueError:
+            msg = QtWidgets.QMessageBox()
+            msg.setIcon(QtWidgets.QMessageBox.Critical)
+            msg.setText("Value Error\nPlease ensure that all frequencies are strictly numeric, e.g. enter '100' or '100.0', rather than '100 Hz' or 'one hundred'.")
+            msg.setWindowTitle("Error")
+            msg.setMinimumWidth(200)
+            msg.exec_()
 
     def exportGIS(self):
         """Export the current heatmap to disc as a TIF file, with associated {}.tif.points georeferencing data. 

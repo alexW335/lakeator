@@ -1,6 +1,10 @@
 from matplotlib.backends.qt_compat import QtWidgets, QtGui, QtCore
 # from PyQt5.QtCore import Horizontal
 
+class NegativeDistanceError(Exception):
+    pass
+
+
 class GPSPopUp(QtWidgets.QDialog):
     """"""
     # Class for the set GPS information dialog box
@@ -110,19 +114,19 @@ class HeatmapBoundsPopUp(QtWidgets.QDialog):
 
         self.leftLabel = QtWidgets.QLabel("Left/West:")
         self.lledit = QtWidgets.QLineEdit(self)
-        self.lledit.setText(str(abs(l)))
+        self.lledit.setText(str(l))
 
         self.rightLabel = QtWidgets.QLabel("Right/East:")
         self.rledit = QtWidgets.QLineEdit(self)
-        self.rledit.setText(str(abs(r)))
+        self.rledit.setText(str(r))
 
         self.upLabel = QtWidgets.QLabel("Up/North:")
         self.uledit = QtWidgets.QLineEdit(self)
-        self.uledit.setText(str(abs(u)))
+        self.uledit.setText(str(u))
 
         self.downLabel = QtWidgets.QLabel("Down/South:")
         self.dledit = QtWidgets.QLineEdit(self)
-        self.dledit.setText(str(abs(d)))
+        self.dledit.setText(str(d))
 
         self.activate = QtWidgets.QPushButton("Set")
 
@@ -158,8 +162,11 @@ class HeatmapBoundsPopUp(QtWidgets.QDialog):
 
     def getValues(self):
         """"""
-        return -float(self.lledit.text()), float(self.rledit.text()), \
-        float(self.uledit.text()), -float(self.dledit.text())
+        a,b,c,d = float(self.lledit.text()), float(self.rledit.text()), \
+        float(self.uledit.text()), float(self.dledit.text())
+        if a >= b or c <= d:
+            raise NegativeDistanceError
+        return a, b, c, d
 
 
 class AlgorithmSettingsPopUp(QtWidgets.QDialog):

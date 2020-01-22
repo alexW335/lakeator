@@ -3,7 +3,7 @@
         "AF-MUSIC": {
             "f_0": 250.0,
             "f_max": 8000.0,
-            "f_min": 100.0
+            "f_min": 75.0
         },
         "GCC": {
             "processor": "p-PHAT",
