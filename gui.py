@@ -8,7 +8,7 @@ from matplotlib.pyplot import colormaps
 
 import lakeator
 import Dialogs
-from Dialogs import NegativeDistanceError
+from Dialogs import NegativeDistanceError, GPSError, EPSGError
 
 
 
@@ -270,17 +270,32 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def changeGPSInfo(self):
         """Listener for the change GPS info dialog - writes the new information to disc and enables the ExportToGIS option."""
-        lat, long, EPSG, projEPSG, targetEPSG = self.setGPSInfoDialog.getValues()
-        self.settings["array"]["GPS"]["EPSG"]["input"] = EPSG
-        self.settings["array"]["GPS"]["EPSG"]["projected"] = projEPSG
-        self.settings["array"]["GPS"]["EPSG"]["target"] = targetEPSG
-        self.settings["array"]["GPS"]["coordinates"] = (lat, long)
-        self._save_settings()
+        try:
+            lat, long, EPSG, projEPSG, targetEPSG = self.setGPSInfoDialog.getValues()
+            self.settings["array"]["GPS"]["EPSG"]["input"] = EPSG
+            self.settings["array"]["GPS"]["EPSG"]["projected"] = projEPSG
+            self.settings["array"]["GPS"]["EPSG"]["target"] = targetEPSG
+            self.settings["array"]["GPS"]["coordinates"] = (lat, long)
+            self._save_settings()
 
-        self._has_GPS = True
-        if self._has_heatmap:
-            self.saveGisAction.setDisabled(False)
-        self.setGPSInfoDialog.close()
+            self._has_GPS = True
+            if self._has_heatmap:
+                self.saveGisAction.setDisabled(False)
+            self.setGPSInfoDialog.close()
+        except EPSGError:
+            msg = QtWidgets.QMessageBox()
+            msg.setIcon(QtWidgets.QMessageBox.Critical)
+            msg.setText("Value Error\nPlease enter EPSG codes for coordinate systems as integers, e.g. 4326 or 2193. To find the EPSG of a given coordinate system, visit https://epsg.io/")
+            msg.setWindowTitle("Error with EPSG code")
+            msg.setMinimumWidth(200)
+            msg.exec_()
+        except GPSError:
+            msg = QtWidgets.QMessageBox()
+            msg.setIcon(QtWidgets.QMessageBox.Critical)
+            msg.setText("Value Error\nPlease enter only the numerical portion of the coordinates, in the order governed by ISO19111 (see https://proj.org/faq.html#why-is-the-axis-ordering-in-proj-not-consistent)")
+            msg.setWindowTitle("Error with GPS input.")
+            msg.setMinimumWidth(200)
+            msg.exec_()
 
     def get_array_info(self):
         """Create a popup to listen for the mic position info, and connect the listener."""
@@ -301,7 +316,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             msg = QtWidgets.QMessageBox()
             msg.setIcon(QtWidgets.QMessageBox.Critical)
             msg.setText("Value Error\nPlease enter microphone coordinates in meters as x,y pairs, one per line; e.g.\n0.0, 0.0\n0.1, 0.0\n0.0, -0.1\n-0.1, 0.0\n0.0, 0.1")
-            msg.setWindowTitle("Error")
+            msg.setWindowTitle("Error with microphone location input")
             msg.setMinimumWidth(200)
             msg.exec_()
 
@@ -327,14 +342,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             msg = QtWidgets.QMessageBox()
             msg.setIcon(QtWidgets.QMessageBox.Critical)
             msg.setText("Value Error\nPlease ensure that all distances are strictly numeric, e.g. enter '5' or '5.0', rather than '5m' or 'five'.")
-            msg.setWindowTitle("Error")
+            msg.setWindowTitle("Error with heatmap bounds")
             msg.setMinimumWidth(200)
             msg.exec_()
         except NegativeDistanceError:
             msg = QtWidgets.QMessageBox()
             msg.setIcon(QtWidgets.QMessageBox.Critical)
             msg.setText("Value Error\nPlease ensure that Left/West < Right/East, \nand Up/North < Down/South.")
-            msg.setWindowTitle("Error")
+            msg.setWindowTitle("Error; impossible region")
             msg.setMinimumWidth(200)
             msg.exec_()
 
@@ -359,7 +374,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             msg = QtWidgets.QMessageBox()
             msg.setIcon(QtWidgets.QMessageBox.Critical)
             msg.setText("Value Error\nPlease ensure that all frequencies are strictly numeric, e.g. enter '100' or '100.0', rather than '100 Hz' or 'one hundred'.")
-            msg.setWindowTitle("Error")
+            msg.setWindowTitle("Error with frequency input")
             msg.setMinimumWidth(200)
             msg.exec_()
 

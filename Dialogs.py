@@ -4,6 +4,12 @@ from matplotlib.backends.qt_compat import QtWidgets, QtGui, QtCore
 class NegativeDistanceError(Exception):
     pass
 
+class GPSError(Exception):
+    pass
+
+class EPSGError(Exception):
+    pass
+
 
 class GPSPopUp(QtWidgets.QDialog):
     """"""
@@ -51,11 +57,17 @@ class GPSPopUp(QtWidgets.QDialog):
     def getValues(self):
         """"""
         instr = self.name1.text().strip().split(',')
-        assert len(instr) == 2
-        lat, long = float(instr[0]), float(instr[1])
-        EPSG = int(self.name2.text())
-        pEPSG = int(self.name3.text())
-        tEPSG = int(self.name4.text())
+        try:
+            assert len(instr) == 2
+            lat, long = float(instr[0]), float(instr[1])
+        except:
+            raise GPSError
+        try:
+            EPSG = int(self.name2.text())
+            pEPSG = int(self.name3.text())
+            tEPSG = int(self.name4.text())
+        except ValueError:
+            raise EPSGError
         return [lat, long, EPSG, pEPSG, tEPSG]
 
 
