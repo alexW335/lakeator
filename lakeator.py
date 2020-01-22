@@ -598,7 +598,7 @@ class Lakeator:
             block_run (bool): Pause execution of the file while the figure is open? Set to True for running in the command-line.
             chunks (int): How many sections to split the data up into. Will split up the data and average the result over the split sections
         """
-        print("beggining subset routine")
+        # print("beggining subset routine")
         if focusing_freq < 0:
             if freqs[0]:
                 if freqs[1]:
@@ -610,7 +610,7 @@ class Lakeator:
                     focusing_freq = freqs[1]/2.0
                 else:
                     focusing_freq = self.sample_rate/4.0
-        print(focusing_freq, freqs)
+        # print(focusing_freq, freqs)
         # Split the data up into "chunks" sections
         indices = [int(x) for x in np.linspace(0, self.data.shape[0], num=chunks+1, endpoint=True)]
 
@@ -629,7 +629,7 @@ class Lakeator:
         else:
             RHSl = len(pos)
         
-        print("found lhs1 and rhs1")
+        # print("found lhs1 and rhs1")
 
         # Rxx will go in here
         Rxx = np.zeros((self.mics.shape[0], self.mics.shape[0], self.data.shape[0]//2+1) , dtype="complex128")
@@ -646,7 +646,7 @@ class Lakeator:
             # print(dft.shape, self.data.shape, Tauto.shape)
 
             Rxx += np.einsum("jin,iln->jln", dft, np.conj(np.transpose(dft, (1,0,2))))/chunks
-        print("calculated Rxx")
+        # print("calculated Rxx")
 
         # focusing_freq_index is the index along dft and Tauto to find f_0
         focusing_freq_index = np.argmin(abs(pos - focusing_freq)) + LHSl
@@ -676,10 +676,10 @@ class Lakeator:
 
             # dft is RFFT of current data chunk
             dft = fft_pack.rfft(dcr, axis=0, n=self.data.shape[0]).T
-            print(dft.shape)
+            # print(dft.shape)
             dft = dft[:, LHSl:RHSl]
             dft.shape = (dft.shape[0], 1, dft.shape[1])
-            print(dft.shape, Tauto.shape, LHSl, RHSl)
+            # print(dft.shape, Tauto.shape, LHSl, RHSl)
 
             Yi = np.einsum("abc,bdc->adc", Tauto, dft)
             Ryy += np.einsum("jin,iln->jln", Yi, np.conj(np.transpose(Yi, (1, 0, 2)))) / chunks
