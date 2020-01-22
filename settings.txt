@@ -12,7 +12,7 @@
         "MUSIC": {
             "freq": 1000.0
         },
-        "current": "AF-MUSIC"
+        "current": "GCC"
     },
     "array": {
         "GPS": {

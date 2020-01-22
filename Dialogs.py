@@ -105,7 +105,7 @@ class MicPositionPopUp(QtWidgets.QDialog):
     def getValues(self):
         """"""
         tmp = []
-        print(r"{}".format(self.name1.toPlainText()))
+        # print(r"{}".format(self.name1.toPlainText()))
         instr = self.name1.toPlainText().strip().split('\n')
         for ind in instr:
             a = ind.split(',')

@@ -246,7 +246,24 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.statusBar().showMessage('Loading...')
         name, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load .wav file", "./", "Audio *.wav")
         if name:
-            self.loc.load(name, rho=self.settings["algorithm"]["GCC"]["rho"])
+            try:
+                self.loc.load(name, rho=self.settings["algorithm"]["GCC"]["rho"])
+            except IndexError:
+                msg = QtWidgets.QMessageBox()
+                msg.setIcon(QtWidgets.QMessageBox.Critical)
+                msg.setText("File Error\nThe number of microphones in the current array configuration ({0}) is greater than the number of tracks in the selected audio file. Please select a {0}-track audio file.".format(self.loc.mics.shape[0]))
+                msg.setWindowTitle("File Error")
+                msg.setMinimumWidth(200)
+                msg.exec_()
+                return
+            if self.loc.mics.shape[0] < self.loc.data.shape[1]:
+                msg = QtWidgets.QMessageBox()
+                msg.setIcon(QtWidgets.QMessageBox.Critical)
+                msg.setText("File Error\nThe number of microphones in the current array configuration ({0}) is less than the number of tracks in the selected audio file ({1}). Please select a {0}-track audio file, or configure the microphone locations to match the current file.".format(self.loc.mics.shape[0], self.loc.data.shape[1]))
+                msg.setWindowTitle("File Error")
+                msg.setMinimumWidth(200)
+                msg.exec_()
+                return
             self.open_filename = name
             self.refreshHeatmap.setDisabled(False)
             self.statusBar().showMessage('Ready.')
