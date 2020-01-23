@@ -51,6 +51,22 @@ class Lakeator:
     The lakeator class may also be used to generate simulated data by means of the shift_sound method, which
     takes in a mono wav file and a set of coordinates and produces a multi-track wav simulating the data which
     would have been recorded were the signal to have came from the provided location.
+
+    Parameters
+    ----------
+    mic_locations : array
+        This is an Mx2 array containing the x,y coordinates of the M microphones in the array.
+    file_path : str
+        If provided, the file at this filepath will be loaded into the lakeator.
+
+    Attributes
+    ----------
+    sound_speed : float
+        The speed of sound in air. Defaults to 343.1 m/s.
+    data : np.array
+        Numpy array to store the loaded data. Left public for convenience.
+    sample_rate : int
+        The sample rate of the currently loaded WAV file.
     """
     sample_rate: int = None
     """The sample rate of the currently loaded data."""
@@ -65,13 +81,15 @@ class Lakeator:
     _GCC_proc_ = ""
 
     def __init__(self, mic_locations=((0.325, 0.000), (-0.160, 0.248), (-0.146, -0.258), (-0.001, 0.002)),
-                 file_path=None, epsg=2193):
+                 file_path=None):
         """Initialise the Locator. If you pass in a file path "example.wav" here it will call self.load(example.wav).
 
-        Arguments:
-            mic_locations (Mx2 tuple): Matrix of microphone coordinates, in meters, relative to the center of the array.
-            file_path (None/string): If present, will call self.load() on the given file path with the default load parameters
-            epsg (int): EPSG Geodetic Parameter Dataset code for GPS coordinate system. Common EPSG codes include EPSG:4326; WGS 84, and EPSG:3857; Web Mercator projection used for display by many web-based mapping tools, including Google Maps and OpenStreetMap. 2193 is NZTM2000.
+        Parameters
+        ----------
+        mic_locations : (Mx2 tuple)
+            Matrix of microphone coordinates, in meters, relative to the center of the array.
+        file_path : (None/string) 
+            If present, will call self.load() on the given file path with the default load parameters
         """
         self.epsg=2193
         self.mics = np.array(mic_locations)
@@ -90,13 +108,18 @@ class Lakeator:
         object for use in the optimisation function or wherever necessary. Pass in a numpy array of data rather than
         loading from a file by setting raw_data = True.
 
-        Arguments:
-            file_path (str): The file path of the WAV file to be read.
-            normalise (bool): Normalise the data? This is a good idea, hence the truthy default state.
-            GCC_processor (str): Which GCC pro
-            cessor to use. Options are: CC, PHAT, Scot, & RIR. See Table 1 of Knapp, C. et. al. (1976) "The Generalised Correlation Method for Estimation of Time Delay"
-            do_FFTs (bool): Calculate the cross-correlations? Worth turning off to save time if only MUSIC-based algorithms are to be used.
-            filter_f (float, float): Tuple of frequencies (in Hertz) between which to apply a bandpass filter. 
+        Parameters
+        ----------
+        file_path : str
+            The file path of the WAV file to be read.
+        normalise : bool
+            Normalise the data? This is a good idea, hence the truthy default state.
+        GCC_processor : str
+            Which GCC processor to use. Options are: CC, PHAT, Scot, & RIR. See Table 1 of Knapp, C. et. al. (1976) "The Generalised Correlation Method for Estimation of Time Delay"
+        do_FFTs : bool
+            Calculate the cross-correlations? Worth turning off to save time if only MUSIC-based algorithms are to be used.
+        filter_f : (float, float) 
+            Tuple of frequencies (in Hertz) between which to apply a bandpass filter. 
         """
 
         self.rho = rho
@@ -148,18 +171,6 @@ class Lakeator:
                 with open('pyfftw_wisdom.txt', 'wb') as f:
                     pickle.dump(pyfftw.export_wisdom(), f)
                 wf = True
-
-    def filter_aliased(self):
-        """Filters out all frequencies above the spatial Nyquist frequency for the current array confguration.
-        This may be questionable.
-        """
-        fc = self.spatial_nyquist_freq
-        w = fc / (self.sample_rate / 2)
-        if w >= 1:
-            return
-        b, a = signal.butter(5, w, 'low')
-        output = signal.filtfilt(b, a, self.data, axis=0)
-        self.data = output
 
     def _whiten_signal_(self):
         for idx in np.arange(self.mics.shape[0]):
@@ -267,24 +278,43 @@ class Lakeator:
         Generates a grid of provided dimension/resolution, and evaluates the selected DOA-estimation at each point on the grid.
         Vectorised for fast execution.
 
-        Arguments:
-            method (str): One of; "GCC", "MUSIC" or "AF-MUSIC". The method to be used in heatmap generation.
-            xrange (float, float): The lower and upper bound in the x-direction.
-            yrange (float, float): The lower and upper bound in the y-direction.
-            xstep (float): If given, determines the size of the steps in the x-direction. Otherwise defaults to 1000 steps.
-            ystep (float): If given, determines the size of the steps in the y-direction. Otherwise defaults to 1000 steps.
-            colormap (str): The colour map for the heatmap. See https://matplotlib.org/examples/color/colormaps_reference.html
-            shw (bool): If False, return the axis object rather than display.
-            block_run (bool): Pause execution of the file while the figure is open? Set to True for running in the command-line.
-            no_fig (bool): If True, return the heatmap grid rather than plot it.
-            freq (float): Frequency, in Hz, at which to calculate the MUSIC spectrum.
-            signals (int): The number of signals to be localised. Only relevant for MUSIC-based methods.
-            AF_freqs (float, float): Lower and upper bounds on the frequencies (in Hz) at which to evaluate the AF-MUSIC algorithm.
-            array_GPS (bool/tuple): False, or tuple of GPS lat/long.
-            save_GIS (bool): Save the image as a tif wth a corresponding .tif.points file for use in GIS software? Requires array_GPS
+        Parameters
+        ----------
+        method : str 
+            One of; "GCC", "MUSIC" or "AF-MUSIC". The method to be used in heatmap generation.
+        xrange : (float, float) 
+            The lower and upper bound in the x-direction.
+        yrange : (float, float)
+            The lower and upper bound in the y-direction.
+        xstep : float 
+            If given, determines the size of the steps in the x-direction. Otherwise defaults to 1000 steps.
+        ystep : float 
+            If given, determines the size of the steps in the y-direction. Otherwise defaults to 1000 steps.
+        colormap : str 
+            The colour map for the heatmap. See https://matplotlib.org/examples/color/colormaps_reference.html
+        shw : bool
+            If False, return the axis object rather than display.
+        block_run : bool 
+            Pause execution of the file while the figure is open? Set to True for running in the command-line.
+        no_fig : bool 
+            If True, return the heatmap grid rather than plot it.
+        freq : float 
+            Frequency, in Hz, at which to calculate the MUSIC spectrum.
+        signals : int 
+            The number of signals to be localised. Only relevant for MUSIC-based methods.
+        AF_freqs : (float, float) 
+            Lower and upper bounds on the frequencies (in Hz) at which to evaluate the AF-MUSIC algorithm.
+        f_0 : float
+            The reference frequency at which to calculate AF-MUSIC. Default of -1 uses the the midway point between AF_freqs.
+        array_GPS : (float, float)
+            False, or tuple of GPS lat/long.
+        save_GIS : bool 
+            Save the image as a tif wth a corresponding .tif.points file for use in GIS software? Requires array_GPS
 
-        Returns:
-            np.array: Returns EITHER the current (filled) heatmap domain if no_fig == True, OR a handle to the displayed figure.
+        Returns
+        -------
+        np.array 
+            Returns EITHER the current (filled) heatmap domain if no_fig == True, OR a handle to the displayed figure.
         """
 
         if (xstep and ystep):
@@ -301,7 +331,7 @@ class Lakeator:
         
         if method.upper() == "AF-MUSIC" or method.upper() == "AF_MUSIC":
             self.dataFFT = fft_pack.rfft(self.data, axis=0, n=2*self.data.shape[0])
-            self._hm_domain_ = self.AF_MUSIC_subset(xdom, ydom, freqs=AF_freqs, focusing_freq=f_0)
+            self._hm_domain_ = self._AF_MUSIC_subset(xdom, ydom, freqs=AF_freqs, focusing_freq=f_0)
         elif method.upper() == "MUSIC":
             assert freq, "Frequency must be provided for MUSIC calculation"
             pos = fft_pack.rfftfreq(2*self.data.shape[0])*self.sample_rate
@@ -332,17 +362,30 @@ class Lakeator:
                               extent=[xrange[0], xrange[1], yrange[0], yrange[1]])
     
     def heatmap_to_GIS(self, array_coords, EPSG, projected_EPSG=2193, target_EPSG=3857, filepath="./heatmap.tif"):
-        """Exports the current heatmap domain to ./heatmap.tif, as well as an auxillary CPS file ./heatmap.tif.points
+        """Export the current heatmap domain to ./heatmap.tif, as well as an auxillary CPS file ./heatmap.tif.points
         which contains the georeferencing data for QGIS. Converts from `EPSG' to `target_EPSG' (default NZTM2000)
         (default WGS84/Pseudo-Mercator; the "Web Mecator Projection")
         If changing target_EPSG, must be in cartesian coordinates to allow for addition of array_coords to bounding box dimensions.
+        
+        Parameters
+        ----------
+        array_coords : (float, float)
+            The GPS coordinates of the center of the array (i.e. (0.0, 0.0)) in the order governed by ISO19111 (see https://proj.org/faq.html#why-is-the-axis-ordering-in-proj-not-consistent).
+        EPSG : int
+            The EPSG code for the coordinate system which array_coords is in. See https://epsg.io/ for help finding the code.
+        projected_EPSG : int
+            A local projected EPSG code. May be the same as the 'EPSG' argument, or may be different. This is used for calculation of the heatmap bounds.
+        target_EPSG : int
+            The EPSG of your QGIS project. This will be the coordinate system in which the georeferencing data will be saved.
+        filepath : str
+            The filepath for the saved heatmap output.
         """
         imdata = self._hm_domain_ - np.min(self._hm_domain_)
         imdata = 255.0*imdata/np.max(imdata)
         imdata = imdata[::-1,:]
         im = Image.fromarray(imdata.astype(np.uint8))
         im.save('{}'.format(filepath))
-        print("EPSG, projected_EPSG, target_EPSG:", EPSG, projected_EPSG, target_EPSG)
+        # print("EPSG, projected_EPSG, target_EPSG:", EPSG, projected_EPSG, target_EPSG)
         with open("{}.points".format(filepath), 'w') as w:
             ts1 = Transformer.from_crs(EPSG, projected_EPSG, always_xy=True)
             xt, yt = ts1.transform(array_coords[0], array_coords[1])
@@ -389,12 +432,17 @@ class Lakeator:
         polynom_steervec([1.2, 3, np.pi]) may be used to delay the first channel of a three-channel audio clip by 1.2 samples,
         the second channel by 3, and the third channel by approximately pi samples.
 
-        Arguments:
-            samples (np.array): A 1D array of the desired delay amounts
-            max_tau (int): The maximum lag in either direction for the fractional delay filters. A higher number will be more accurate, but take longer to use.
+        Parameters
+        ----------
+        samples : np.array
+            A 1D array of the desired delay amounts
+        max_tau : int
+            The maximum lag in either direction for the fractional delay filters. A higher number will be more accurate, but take longer to use.
 
-        Returns:
-            np.array: A vector containing the desired fractional delay filters.
+        Returns
+        -------
+        np.array
+            A vector containing the desired fractional delay filters.
         """
         mics = self.mics
         tau = samples
@@ -409,11 +457,16 @@ class Lakeator:
 
         Saves the resultant file in the current working directory with the provided filename, at the same sample rate as the input data.
 
-        Arguments:
-            location (float, float): A tuple (x,y) providing the location in meters relative to the array at which to simulate the sound as having came from.
-            inputfile (str): File path for the mono wav file to be used.
-            output_filename (str): The desired file name for the output file.
-            noisescale (float): Adds Gaussian white noise with standard deviation noisescale*(standard deviation of input file)
+        Parameters
+        ----------
+        location : (float, float) 
+            A tuple (x,y) providing the location in meters relative to the array at which to simulate the sound as having came from.
+        inputfile : str
+            File path for the mono wav file to be used.
+        output_filename : str 
+            The desired file name for the output file.
+        noisescale : float 
+            Adds Gaussian white noise with standard deviation noisescale*(standard deviation of input file)
         """
 
         [spl, dt] = wav.read(inputfile)
@@ -442,15 +495,12 @@ class Lakeator:
         for idx in np.arange(xout.shape[0]):
             xout[idx,:] = np.roll(xout[idx,:], int(intsamples[idx]))
 
-
         if noisescale != 0:
             xout += np.random.normal(0, noisescale*sqrt(np.var(xout)), size=xout.shape)
 
         xout *= (2**15-1)/np.max(abs(xout))
 
         xout = xout.astype('int16')
-        # plt.plot(xout.T)
-        # plt.show()
         wav.write(output_filename, spl, xout.T)
 
     def _MUSIC1D_(self, freqtup, theta, numsignals=1, SI=None):
@@ -587,7 +637,7 @@ class Lakeator:
         Ryy = dot(Y, Y.conj().T)
         return Ryy*abs(ui[sortarg[0]])
 
-    def AF_MUSIC_subset(self, xdom, ydom, focusing_freq=-1, npoints=1000, signals=1, shw=True, block_run=True, chunks=10, freqs=(False, False)):
+    def _AF_MUSIC_subset(self, xdom, ydom, focusing_freq=-1, npoints=1000, signals=1, shw=True, block_run=True, chunks=10, freqs=(False, False)):
         """Display a polar plot of estimated DOA using the MUSIC algorithm
 
         Arguments:
@@ -730,11 +780,24 @@ class Lakeator:
     def estimate_DOA_path(self, method, path=lambda x: (np.cos(2*np.pi*x), np.sin(2*np.pi*x)), array_GPS=False, npoints=2500, map_zoom=20, map_scale=2, freq=False, AF_freqs=(False, False)):
         """Gives an estimate of the source DOA along the `path` provided, otherwise along the unit circle if `path` is not present. 
 
-        Arguments:
-            method (str): One of; "GCC", "MUSIC", or "AF-MUSIC". The method to use for DOA estimation.
-            path (str/function): A filepath to a saved Google Earth path (in .kmz form), else a function f: [0,1]->R^2 to act as a 
-                                 parametrisation of the path at which to evaluate the DOA estimator.
-            npoints (int): The number of points along the path to sample.
+        Parameters
+        ----------
+        method : str 
+            One of; "GCC", "MUSIC", or "AF-MUSIC". The method to use for DOA estimation.
+        path : str/function 
+            A filepath to a saved Google Earth path (in .kmz form), else a function f: [0,1]->R^2 to act as a parametrisation of the path at which to evaluate the DOA estimator.
+        npoints : int 
+            The number of points along the path to sample.
+        array_GPS : ()
+            !! REQUIRES CONVERSION TO PYPROJ !!
+        map_zoom : int
+            Zoom level of GEarth imagery. See motionless documentation for more details.
+        map_scale : int
+            Map scale of GEarth imagery. See motionless documentation for more details. 
+        freq : float
+            The frequency at which to evaluate the *narrowband* MUSIC algorithm, if using.
+        AF_freqs : (float, float)
+            A lower and upper limit on the frequncies at which to eveluate the AF-MUSIC algorithm, if using.
         """
         pathstr = False
         if isinstance(path, str):
@@ -756,7 +819,7 @@ class Lakeator:
             eval_dom = self._MUSIC2D_((pos[actidx], actidx), dom[0:1,:].T, dom[1:,:].T).flatten()
         elif method.upper() == "AF-MUSIC" or method.upper() == "AF_MUSIC":
             self.dataFFT = fft_pack.rfft(self.data, axis=0, n=2*self.data.shape[0])
-            eval_dom = self.AF_MUSIC_subset(dom[0:1,:].T, dom[1:,:].T, freqs=AF_freqs).flatten()
+            eval_dom = self._AF_MUSIC_subset(dom[0:1,:].T, dom[1:,:].T, freqs=AF_freqs).flatten()
         else:
             print("Method not recognised. Defaulting to GCC.")
             eval_dom = self._objective_(dom[0,:], dom[1,:])
@@ -793,30 +856,34 @@ class Lakeator:
             response = requests.get(dmap.generate_url())
             with open("{}.png".format(pathstr), 'wb') as outfile:
                 outfile.write(response.content)
-            
             im = mpimg.imread("{}.png".format(pathstr))
             plt.subplot(122)
             plt.imshow(im)
-            # plt.axis("off")
             plt.xticks([])
             plt.yticks([])
             plt.title("{} Satellite Imagery".format(pathstr))
             plt.xlabel("A: Array\nB: Bird")
 
-        
         plt.show()
 
 def UCA(n, r, centerpoint=True, show=False):
     """A helper function to easily set up UCAs (uniform circular arrays).
 
-    Arguments:
-        n (int): The number of microphones in the array.
-        r (float): The radius of the array
-        centerpoint (bool): Include a microphone at (0,0)? This will be one of the n points.
-        show (bool): If True, shows a scatterplot of the array
+    Parameters
+    ----------
+    n : int 
+        The number of microphones in the array.
+    r : float
+        The radius of the array, in meters.
+    centerpoint : bool 
+        Include a microphone at (0,0)? This will be one of the n points.
+    show : bool 
+        If True, shows a scatterplot of the array
 
-    Returns:
-        np.array: An n by 2 numpy array containing the x and y positions of the n microphones in the UCA.
+    Returns
+    -------
+    np.array
+        An (n x 2) numpy array, containing the x and y positions of the n microphones in the UCA.
     """
     mics = []
     if centerpoint:
@@ -834,6 +901,15 @@ def UCA(n, r, centerpoint=True, show=False):
     return mics
 
 def UMA8(bearing=0, center=0):
+    """Return an array containing the positions of the microphones in a miniDSP UMA-8 USB mic array, if centered at `center` and facing bearing `bearing`.
+
+    Parameters
+    ----------
+    bearing : float
+        Compass bearing of the USB port on the UMA-8.
+    center : (float, float)
+        The coordinates at which to place the UMA-8.
+    """
     pixel_dist = 90.0/(1171.0-77.0)
     pixel_dist /= 1000.0
     
