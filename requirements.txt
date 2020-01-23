@@ -1,0 +1,19 @@
+-i https://pypi.org/simple
+certifi==2019.11.28
+chardet==3.0.4
+cycler==0.10.0
+idna==2.8
+kiwisolver==1.1.0
+matplotlib==3.1.2
+motionless==1.3.2
+numpy==1.18.1
+pillow==7.0.0
+pyparsing==2.4.6
+pyproj==2.4.2.post1
+pyqt5-sip==12.7.0
+pyqt5==5.14.1
+python-dateutil==2.8.1
+requests==2.22.0
+scipy==1.4.1
+six==1.14.0
+urllib3==1.25.8
