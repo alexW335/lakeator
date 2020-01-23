@@ -9,22 +9,17 @@ The lakeator is a python class designed for use in acoustic source localisation.
 ## How do you use it?
 The lakeator class can either be used inside a python script (see the main.py file, for example) or via the GUI with `python gui.py`. The GUI is designed to not require any programming knowledge to be able to use it. 
 
-## What do you need to run it?
-The lakeator is dependent on the following packages:
-* pickle
-* zipfile
-* requests
-* xml
-* numpy
-* scipy
-* itertools
-* matplotlib
-* [motionless](https://github.com/ryancox/motionless)
-* [PIL](https://github.com/python-pillow/Pillow/)
-* [pyproj](http://python.org/pypi/pyproj)
-* (optionally) [PYFFTW](https://pypi.org/project/pyFFTW/)
+## Installation
+To install dependencies with pipenv, use `pipenv install --ignore-pipfile`. The lakeator is dependent on the following packages, which will be installed:
 
-and the GUI contained in `gui.py` *should* only require matplotlib and the other files contained within this repository.
+* [PyQt5](http://python.org/pypi/PyQt5)
+* [requests](http://python.org/pypi/requests)
+* [numpy](http://python.org/pypi/numpy)
+* [scipy](http://python.org/pypi/scipy)
+* [matplotlib](http://python.org/pypi/matplotlib)
+* [motionless](http://python.org/pypi/motionless)
+* [pillow](http://python.org/pypi/Pillow)
+* [pyproj](http://python.org/pypi/pyproj)
 
 
 # References
