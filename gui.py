@@ -103,7 +103,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.img = None
 
         # Dynamically generate menu full of all available colourmaps. Do not add the inverted ones.
-        self.colMenu = heatmapMenu.addMenu("&Choose colour map")
+        self.colMenu = heatmapMenu.addMenu("&Choose Colour Map")
         self.colMenu.setDisabled(True)
         colGroup = QtWidgets.QActionGroup(self)
         for colour in sorted(colormaps(), key=str.casefold):
@@ -118,7 +118,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 cm.triggered.connect(self.static_canvas.draw)
                 colGroup.addAction(cm)
 
-        self.invert = QtWidgets.QAction("&Invert colour map", self)
+        self.invert = QtWidgets.QAction("&Invert Colour Map", self)
         self.invert.setShortcut("Ctrl+I")
         self.invert.setStatusTip("Invert the current colourmap.")
         self.invert.triggered.connect(self.invert_heatmap)
