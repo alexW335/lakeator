@@ -9,6 +9,9 @@ The lakeator is a python class designed for use in acoustic source localisation.
 ## How do you use it?
 The lakeator class can either be used inside a python script (see the main.py file, for example) or via the GUI with `python gui.py`. The GUI is designed to not require any programming knowledge to be able to use it. 
 
+### Documentation
+Documentation is available at https://lakeator.readthedocs.io/en/latest/
+
 ## Installation
 To install dependencies with pipenv, use `pipenv install --ignore-pipfile`. The lakeator is dependent on the following packages, which will be installed:
 
