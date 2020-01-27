@@ -118,7 +118,7 @@ class HeatmapBoundsPopUp(QtWidgets.QDialog):
     def __init__(self, l, r, u, d, parent=None):
         """"""
         QtWidgets.QDialog.__init__(self, parent)
-        self.setWindowTitle('Set Heatmap Bounds')
+        self.setWindowTitle('Set Heatmap Domain')
         self.setWindowIcon(QtGui.QIcon('kiwi.png'))
         self.setMinimumWidth(400)
 
