@@ -352,8 +352,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.settings["heatmap"]["xlim"] = [l_new, r_new]
             self.settings["heatmap"]["ylim"] = [d_new, u_new]
             self._save_settings()
-            if self.open_filename:
-                self.generate_heatmap()
+            # if self.open_filename:
+                # self.generate_heatmap()
             self.setBoundsInfoDialog.close()
         except ValueError:
             msg = QtWidgets.QMessageBox()
