@@ -50,7 +50,7 @@
         ]
     },
     "heatmap": {
-        "cmap": "gist_heat",
+        "cmap": "inferno",
         "xlim": [
             -5.0,
             5.0

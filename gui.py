@@ -399,7 +399,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         """Export the current heatmap to disc as a TIF file, with associated {}.tif.points georeferencing data. 
         
         This is handled by the lakeator - this method is simply a wrapper and filepath selector."""
-        defaultname = self.open_filename[:-4] + "_" + self.settings["algorithm"]["current"] + "_heatmap.tif"
+        defaultname = self.open_filename[:-4] + "_" + self.settings["algorithm"]["current"] + "_heatmap"
         name, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save image & GIS Metadata", defaultname, "TIF files *.tif;; All Files *")
         if name:
             name = name + ".tif"
